@@ -1,7 +1,7 @@
 #!/bin/sh
 #PBS -N mlips4g16_smoke
 #PBS -q default
-#PBS -l nodes=1:ppn=32:gpus=1,mem=120GB,walltime=12:00:00
+#PBS -l nodes=1:ppn=4,mem=16GB,walltime=02:00:00
 #PBS -o /dev/null
 #PBS -e /dev/null
 
@@ -50,16 +50,22 @@ run_list_models() {
     return 0
   fi
 
+  if [ -f "$py_script" ]; then
+    echo "[INFO] prefixed command not found; using python script ${py_script}"
+    python3 "$py_script" --version || true
+    python3 "$py_script" --list-models | head -n 20
+    return 0
+  fi
+
   if command -v "$short_cmd" >/dev/null 2>&1; then
-    echo "[INFO] using ${short_cmd}"
+    echo "[WARN] prefixed command missing; using short alias ${short_cmd} (may collide across packages)"
     "$short_cmd" --version || true
     "$short_cmd" --list-models | head -n 20
     return 0
   fi
 
-  echo "[INFO] using python script ${py_script}"
-  python3 "$py_script" --version || true
-  python3 "$py_script" --list-models | head -n 20
+  echo "[ERROR] no usable command found for ${pref_cmd}/${short_cmd}"
+  return 1
 }
 
 run_list_models "mlips4g16-uma" "uma" "plugins/uma_g16.py"

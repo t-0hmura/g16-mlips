@@ -1,5 +1,7 @@
 # mlips4g16
 
+This plugin enables Machine Learning Interatomic Potentials (MLIPs) in Gaussian16 through the External interface.
+
 MLIP plugins for Gaussian16 `External` with three model families:
 - UMA (FAIR-Chem)
 - OrbMol (orb-models)
@@ -89,6 +91,10 @@ pip install "mlips4g16[orb,mace]"
 # Core package only (no backend dependencies)
 pip install mlips4g16
 ```
+
+Important compatibility note:
+- UMA and MACE are currently not compatible in a single environment due to `e3nn` dependency constraints.
+- Use separate environments (for example: one env for `mlips4g16[uma]`, another env for `mlips4g16[mace]` or `mlips4g16[orb,mace]`).
 
 Local source install:
 ```bash

@@ -129,7 +129,7 @@ def run_g16_plugin(
         return 0
 
     # Manual utility mode (no Gaussian tail needed)
-    if len(argv) <= 3 and "--list-models" in argv:
+    if len(argv) <= 3 and (("--list-models" in argv) or ("--version" in argv)):
         args = parser.parse_args(argv)
         if args.list_models:
             for item in available_models():
