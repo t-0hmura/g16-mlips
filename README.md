@@ -1,6 +1,8 @@
 # mlips4g16
 
 This plugin enables Machine Learning Interatomic Potentials (MLIPs) in Gaussian16 through the External interface.
+Because analytical Hessians are available, this plugin can provide more accurate TS searches, IRC, and vibrational analysis than numerical Hessians.
+If your environment has limited GPU VRAM, Numerical Hessian mode (`--hessian-mode Numerical`) is recommended.
 
 MLIP plugins for Gaussian16 `External` with three model families:
 - UMA (FAIR-Chem)

@@ -97,6 +97,3 @@ run_list_models "mlips4g16-uma" "uma" "plugins/uma_g16.py"
 run_list_models "mlips4g16-orb" "orb" "plugins/orbmol_g16.py"
 run_list_models "mlips4g16-mace" "mace" "plugins/mace_g16.py"
 echo "[INFO] smoke test completed"
-
-# Full Gaussian run example (after dependency installation):
-# g16 < examples/water_external.gjf > water_external.log
