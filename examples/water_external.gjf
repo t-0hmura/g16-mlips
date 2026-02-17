@@ -1,0 +1,9 @@
+%chk=water_ext.chk
+#p external="/data2/tohmura/pdb2reaction_workspace/mlips4g16/plugins/uma_g16.py --model uma-s-1p1 --task omol --hessian-mode Analytical" opt
+
+Water external UMA example
+
+0 1
+O  0.000000  0.000000  0.000000
+H  0.758602  0.000000  0.504284
+H -0.758602  0.000000  0.504284
