@@ -1,5 +1,5 @@
 %chk=water_ext.chk
-#p external="/path/to/mlips4g16/plugins/uma_g16.py --model uma-s-1p1 --task omol --hessian-mode Analytical" opt
+#p external="uma" opt
 
 Water external UMA example
 

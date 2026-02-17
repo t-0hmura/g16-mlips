@@ -8,6 +8,14 @@ import os
 import sys
 import traceback
 
+try:
+    from importlib import metadata as _importlib_metadata
+except Exception:
+    try:
+        import importlib_metadata as _importlib_metadata
+    except Exception:
+        _importlib_metadata = None
+
 if __package__ in (None, ""):
     _HERE = os.path.dirname(os.path.abspath(__file__))
     if _HERE not in sys.path:
@@ -29,6 +37,33 @@ else:
 
 class RunnerError(RuntimeError):
     pass
+
+
+def _backend_alias(plugin_name):
+    low = os.path.basename(str(plugin_name or "")).lower()
+    if "orb" in low:
+        return "orb"
+    if "mace" in low:
+        return "mace"
+    return "uma"
+
+
+def _find_orca_extinp_arg(argv):
+    for arg in argv:
+        text = str(arg).strip().lower()
+        if text.endswith(".extinp.tmp"):
+            return arg
+    return None
+
+
+def _version_text(plugin_name):
+    version = "dev"
+    if _importlib_metadata is not None:
+        try:
+            version = _importlib_metadata.version("mlips4g16")
+        except Exception:
+            pass
+    return "{} (mlips4g16 {})".format(plugin_name, version)
 
 
 def _split_gaussian_tail(argv):
@@ -79,20 +114,40 @@ def run_g16_plugin(
         help="Fail instead of falling back to numerical Hessian when analytical Hessian is unavailable.",
     )
     parser.add_argument("--list-models", action="store_true", help="Print model aliases and exit")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=_version_text(plugin_name),
+    )
 
     if add_extra_args is not None:
         add_extra_args(parser)
 
-    # Manual listing mode (no Gaussian tail needed)
-    if "--list-models" in argv and len(argv) <= 3:
+    # Help mode should work without Gaussian-generated tail arguments.
+    if ("-h" in argv) or ("--help" in argv):
+        parser.parse_args(["--help"])
+        return 0
+
+    # Manual utility mode (no Gaussian tail needed)
+    if len(argv) <= 3 and "--list-models" in argv:
         args = parser.parse_args(argv)
-        _ = args
-        for item in available_models():
-            print(item)
+        if args.list_models:
+            for item in available_models():
+                print(item)
         return 0
 
     custom_args, gtail = _split_gaussian_tail(argv)
     if custom_args is None or gtail is None:
+        extinp_like = _find_orca_extinp_arg(argv)
+        if extinp_like is not None:
+            backend = _backend_alias(plugin_name)
+            parser.error(
+                "Detected ORCA-style input '{}'. "
+                "This command appears to be a Gaussian plugin, but it was called in ORCA style. "
+                "If short aliases are conflicting, set ORCA ProgExt to '{}'.".format(
+                    extinp_like, "mlips4orca-" + backend
+                )
+            )
         parser.error(
             "Gaussian-generated 6 tail args are missing. "
             "Use --list-models for standalone listing."
