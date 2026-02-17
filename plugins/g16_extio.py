@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Gaussian External input/output helpers.
 
-Reference: local Gaussian documentation
-- /home/apps/g16_C02_zen3/g16/doc/extern.txt
+Reference: Gaussian documentation distributed with your installation,
+typically `$g16root/g16/doc/extern.txt` and `$g16root/g16/doc/extgau`.
 """
 
 from __future__ import absolute_import, division, print_function
@@ -48,7 +48,7 @@ def _atomic_number_to_symbol(z):
 def read_g16_external_input(input_path):
     """Read Gaussian external input file.
 
-    Format from Gaussian docs (/doc/extern.txt):
+    Format from Gaussian external interface docs:
     NAtoms, IGrd, ICharg, Multip  (4I10)
     then NAtoms lines:
     IAn, X, Y, Z, MMCharge

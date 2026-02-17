@@ -1,42 +1,62 @@
 # mlips4g16
 
-Gaussian16 `External` キーワード用の MLIP プラグイン集です。
+Path-independent MLIP plugins for Gaussian16 `External`.
 
-提供プラグイン:
+Included plugins:
 - `plugins/uma_g16.py` (FAIR-Chem / UMA)
 - `plugins/orbmol_g16.py` (orb-models / OrbMol)
 - `plugins/mace_g16.py` (MACE)
 
-## 1. 仕様調査の根拠
+Default models:
+- UMA: `uma-s-1p1`
+- OrbMol: `orb_v3_conservative_omol`
+- MACE: `MACE-OMOL-0` (alias of `omol:extra_large`)
 
-この実装は以下に基づいています。
-- Gaussian External仕様（ローカル同梱ドキュメント）:
-  - `/home/apps/g16_C02_zen3/g16/doc/extern.txt`
-  - `/home/apps/g16_C02_zen3/g16/doc/extgau`
-- UMA モデル/API:
-  - https://github.com/facebookresearch/fairchem
-- OrbMol モデル/API:
-  - https://github.com/orbital-materials/orb-models
-- MACE モデル/API:
-  - https://github.com/ACEsuit/mace
+## Quick Start
 
-## 2. インストール
-
+1. Clone and enter this repository.
 ```bash
-cd /data2/tohmura/pdb2reaction_workspace/mlips4g16
-python3 -m pip install -r requirements.txt
+git clone https://github.com/t-0hmura/mlips4g16.git
+cd mlips4g16
 ```
 
-追加依存（バックエンドごと）:
-- UMA: `pip install fairchem-core`
-- OrbMol: `pip install orb-models`
-- MACE: `pip install mace-torch`
+2. (Optional) Create a clean environment.
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+```
 
-## 3. Gaussian入力例
+3. Install base requirements.
+```bash
+pip install -r requirements.txt
+```
+
+4. Install only the backend you need.
+```bash
+# UMA
+pip install fairchem-core
+
+# OrbMol
+pip install orb-models
+
+# MACE
+pip install mace-torch
+```
+
+5. Verify model listing.
+```bash
+python3 plugins/uma_g16.py --list-models
+python3 plugins/orbmol_g16.py --list-models
+python3 plugins/mace_g16.py --list-models
+```
+
+## Gaussian Input Example
+
+Replace `/path/to/mlips4g16` with your local clone path.
 
 ```text
 %chk=water_ext.chk
-#p external="/data2/tohmura/pdb2reaction_workspace/mlips4g16/plugins/uma_g16.py --model uma-s-1p1 --task omol --hessian-mode Analytical" opt
+#p external="/path/to/mlips4g16/plugins/uma_g16.py --model uma-s-1p1 --task omol --hessian-mode Analytical" opt
 
 Water external UMA example
 
@@ -46,58 +66,61 @@ H  0.758602  0.000000  0.504284
 H -0.758602  0.000000  0.504284
 ```
 
-OrbMol/MACEを使う場合は `external=".../orbmol_g16.py ..."` または `external=".../mace_g16.py ..."` に置換します。
+Switch backend by replacing the script path:
+- `.../plugins/orbmol_g16.py`
+- `.../plugins/mace_g16.py`
 
-## 4. モデル指定
+## Model Selection
 
-### UMA
+UMA:
 ```bash
 python3 plugins/uma_g16.py --list-models
 python3 plugins/uma_g16.py --list-tasks
 ```
-- デフォルト: `uma-s-1p1`
-- `--list-models` は、インストール済み `fairchem` の `available_models` を優先し、未導入時はリポジトリ由来のフォールバック一覧を返します。
 
-### OrbMol
+OrbMol:
 ```bash
 python3 plugins/orbmol_g16.py --list-models
 ```
-- デフォルト: `orb_v3_conservative_omol`
-- `-` と `_` の両形式を受理します（例: `orb-v3-conservative-omol`, `orb_v3_conservative_omol`）。
+Both dashed and underscored names are accepted, for example:
+- `orb-v3-conservative-omol`
+- `orb_v3_conservative_omol`
 
-### MACE
+MACE:
 ```bash
 python3 plugins/mace_g16.py --list-models
 ```
-- デフォルト: `MACE-OMOL-0` (内部的に `omol:extra_large` と同義)
-
-MACEは以下を受け付けます。
-- `MACE-OMOL-0` (OMOL-0のデフォルトエイリアス)
-- `mp:<alias>` / `<alias>` 例 `mp:medium-mpa-0`, `medium-mpa-0`
-- `off:<alias>` 例 `off:medium`
-- `off-small|off-medium|off-large`
+Accepted forms include:
+- `MACE-OMOL-0`
+- `mp:<alias>` or `<alias>` (for MP aliases)
+- `off:<alias>` / `off-small|off-medium|off-large`
 - `omol:extra_large`
 - `anicc`
-- ローカルモデルパス / URL
+- local model path or model URL
 
-## 5. Hessianモード
+## Hessian Mode
 
-`IGrd=2`（Gaussian が Hessian を要求するケース）では、以下を選択できます。
+When Gaussian requests Hessian (`IGrd=2`), you can choose:
 - `--hessian-mode Analytical`
 - `--hessian-mode Numerical`
 
-`--strict-hessian` を付けると、Analytical失敗時にNumericalへフォールバックせずエラーにします。
+Use `--strict-hessian` to fail instead of falling back to numerical Hessian.
 
-## 6. ジョブ投入
+## Notes
 
-`run.sh` を編集して投入:
+- This implementation follows Gaussian External format from the docs distributed with Gaussian, typically:
+  - `$g16root/g16/doc/extern.txt`
+  - `$g16root/g16/doc/extgau`
+- Upstream model sources:
+  - https://github.com/facebookresearch/fairchem
+  - https://github.com/orbital-materials/orb-models
+  - https://github.com/ACEsuit/mace
 
+## Cluster Smoke Test
+
+Edit and submit:
 ```bash
-cd /data2/tohmura/pdb2reaction_workspace/mlips4g16
 qsub run.sh
 ```
 
-`run.sh` には以下を含めています。
-- `. /home/apps/Modules/init/profile.sh`
-- `module load gaussian16.C02`
-- `module load orca/6.1.1`
+`run.sh` is intentionally generic and only loads modules if your environment provides the module system.

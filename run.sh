@@ -9,13 +9,19 @@ set -eu
 
 test "${PBS_O_WORKDIR:-}" && cd "$PBS_O_WORKDIR"
 
-. /home/apps/Modules/init/profile.sh
-module load gaussian16.C02
-module load orca/6.1.1
+# Optional module initialization (path-independent).
+if [ -n "${MODULESHOME:-}" ] && [ -f "${MODULESHOME}/init/profile.sh" ]; then
+  . "${MODULESHOME}/init/profile.sh"
+fi
+
+if command -v module >/dev/null 2>&1; then
+  module load gaussian16.C02 || true
+  module load orca/6.1.1 || true
+fi
 
 # Optional: activate env containing torch/ase and backend packages.
-# source /home/tohmura/miniconda3/etc/profile.d/conda.sh
-# conda activate pdb2reaction
+# source /path/to/miniconda3/etc/profile.d/conda.sh
+# conda activate mlips
 
 python3 -m py_compile plugins/*.py
 
