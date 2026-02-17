@@ -1,7 +1,7 @@
 %chk=sn2_ext.chk
-#p external="uma" opt
+#p external="orb" opt(calcfc,ts)
 
-SN2 external UMA example
+SN2 external ORB example
 
 -1 1
 C     0.3081730000    -0.0000075500    -0.0000178300

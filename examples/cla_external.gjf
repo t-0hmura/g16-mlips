@@ -1,5 +1,5 @@
 %chk=cla_ext.chk
-#p external="uma" opt
+#p external="uma" opt(calcfc,ts)
 
 CLA external UMA example
 

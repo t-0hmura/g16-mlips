@@ -42,30 +42,55 @@ run_list_models() {
   pref_cmd="$1"
   short_cmd="$2"
   py_script="$3"
+  backend_run "$pref_cmd" "$short_cmd" "$py_script" --version || true
+  backend_run "$pref_cmd" "$short_cmd" "$py_script" --list-models | head -n 20
+}
+
+resolve_backend_runner() {
+  pref_cmd="$1"
+  short_cmd="$2"
+  py_script="$3"
+
+  BACKEND_RUNNER_TYPE=""
+  BACKEND_RUNNER=""
 
   if command -v "$pref_cmd" >/dev/null 2>&1; then
+    BACKEND_RUNNER_TYPE="cmd"
+    BACKEND_RUNNER="$pref_cmd"
     echo "[INFO] using ${pref_cmd}"
-    "$pref_cmd" --version || true
-    "$pref_cmd" --list-models | head -n 20
     return 0
   fi
 
   if [ -f "$py_script" ]; then
+    BACKEND_RUNNER_TYPE="py"
+    BACKEND_RUNNER="$py_script"
     echo "[INFO] prefixed command not found; using python script ${py_script}"
-    python3 "$py_script" --version || true
-    python3 "$py_script" --list-models | head -n 20
     return 0
   fi
 
   if command -v "$short_cmd" >/dev/null 2>&1; then
+    BACKEND_RUNNER_TYPE="cmd"
+    BACKEND_RUNNER="$short_cmd"
     echo "[WARN] prefixed command missing; using short alias ${short_cmd} (may collide across packages)"
-    "$short_cmd" --version || true
-    "$short_cmd" --list-models | head -n 20
     return 0
   fi
 
   echo "[ERROR] no usable command found for ${pref_cmd}/${short_cmd}"
   return 1
+}
+
+backend_run() {
+  pref_cmd="$1"
+  short_cmd="$2"
+  py_script="$3"
+  shift 3
+
+  resolve_backend_runner "$pref_cmd" "$short_cmd" "$py_script" || return 1
+  if [ "$BACKEND_RUNNER_TYPE" = "py" ]; then
+    python3 "$BACKEND_RUNNER" "$@"
+  else
+    "$BACKEND_RUNNER" "$@"
+  fi
 }
 
 run_list_models "mlips4g16-uma" "uma" "plugins/uma_g16.py"

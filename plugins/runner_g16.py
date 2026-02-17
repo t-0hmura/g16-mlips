@@ -108,11 +108,6 @@ def run_g16_plugin(
     parser.add_argument("--device", default="auto", help="cpu|cuda|auto")
     parser.add_argument("--hessian-mode", choices=["Analytical", "Numerical"], default="Analytical")
     parser.add_argument("--hessian-step", type=float, default=1.0e-3, help="Finite-difference step in Angstrom")
-    parser.add_argument(
-        "--strict-hessian",
-        action="store_true",
-        help="Fail instead of falling back to numerical Hessian when analytical Hessian is unavailable.",
-    )
     parser.add_argument("--list-models", action="store_true", help="Print model aliases and exit")
     parser.add_argument(
         "--version",
@@ -180,7 +175,6 @@ def run_g16_plugin(
         need_hessian=need_hess,
         hessian_mode=args.hessian_mode,
         hessian_step=float(args.hessian_step),
-        strict_hessian=bool(args.strict_hessian),
     )
 
     grad_ha_bohr = None

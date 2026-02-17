@@ -1,7 +1,7 @@
 %chk=water_ext.chk
-#p external="uma" opt
+#p external="mace" opt
 
-Water external UMA example
+Water external MACE example
 
 0 1
 O  0.000000  0.000000  0.000000
