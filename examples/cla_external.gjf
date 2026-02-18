@@ -1,7 +1,7 @@
 
 %oldchk=cla_freq.chk
 %chk=cla_ext.chk
-#p external="uma" opt(readfc,noeigentest,ts) freq(noraman)
+#p external="uma" opt(readfc,noeigentest,ts,maxcycles=10000) freq(noraman)
 
 CLA TS opt UMA
 

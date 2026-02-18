@@ -1,6 +1,6 @@
 %oldchk=wat_freq.chk
 %chk=wat_ext.chk
-#p external="mace" opt(readfc,noeigentest,ts) freq(noraman)
+#p external="mace" opt(readfc,noeigentest,ts,maxcycles=10000) freq(noraman)
 
 Water opt MACE
 

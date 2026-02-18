@@ -1,6 +1,6 @@
 %oldchk=sn2_freq.chk
 %chk=sn2_ext.chk
-#p external="orb" opt(readfc,noeigentest,ts) freq(noraman)
+#p external="orb" opt(readfc,noeigentest,ts,maxcycles=10000) freq(noraman)
 
 SN2 TS opt ORB
 

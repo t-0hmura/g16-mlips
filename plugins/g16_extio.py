@@ -11,6 +11,8 @@ import os
 
 import numpy as np
 
+BOHR_PER_ANG = 1.8897261254578281
+
 
 class G16IOError(RuntimeError):
     pass
@@ -53,6 +55,11 @@ def read_g16_external_input(input_path):
     then NAtoms lines:
     IAn, X, Y, Z, MMCharge
     followed by connectivity block (ignored here).
+
+    NOTE:
+    In Gaussian16 C.02 External calls, X/Y/Z in the generated input are
+    observed in Bohr units. Backends in this project consume Angstrom, so
+    we convert Bohr -> Angstrom here.
     """
     input_path = os.path.abspath(input_path)
     if not os.path.isfile(input_path):
@@ -89,6 +96,9 @@ def read_g16_external_input(input_path):
         coords.append([x, y, z])
         mm_charges.append(qmm)
 
+    coords_bohr = np.asarray(coords, dtype=np.float64)
+    coords_ang = coords_bohr / BOHR_PER_ANG
+
     return {
         "input_path": input_path,
         "natoms": nat,
@@ -96,7 +106,8 @@ def read_g16_external_input(input_path):
         "charge": int(charge),
         "multiplicity": int(multiplicity),
         "symbols": symbols,
-        "coords_ang": np.asarray(coords, dtype=np.float64),
+        "coords_bohr": coords_bohr,
+        "coords_ang": coords_ang,
         "mm_charges": np.asarray(mm_charges, dtype=np.float64),
     }
 
