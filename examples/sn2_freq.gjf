@@ -1,8 +1,7 @@
-%oldchk=sn2_freq.chk
-%chk=sn2_ext.chk
-#p external="orb" opt(readfc,noeigentest,ts)
+%chk=sn2_freq.chk
+#p external="orb" freq
 
-SN2 TS opt ORB - read Hessian from chk (run sn2_freq.gjf first)
+SN2 freq ORB - compute analytical Hessian
 
 -1 1
 C     0.3081730000    -0.0000075500    -0.0000178300

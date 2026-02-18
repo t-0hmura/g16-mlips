@@ -1,7 +1,8 @@
+%oldchk=water_freq.chk
 %chk=water_ext.chk
-#p external="mace" opt
+#p external="mace" opt(readfc)
 
-Water external MACE example
+Water opt MACE - read Hessian from chk (run water_freq.gjf first)
 
 0 1
 O  0.000000  0.000000  0.000000

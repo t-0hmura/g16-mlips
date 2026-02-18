@@ -26,12 +26,30 @@ if __package__ in (None, ""):
         forces_ev_ang_to_gradient_ha_bohr,
         hessian_ev_ang2_to_ha_bohr2,
     )
+    from mlip_server import (
+        MLIPServer,
+        ServerError,
+        auto_server_socket,
+        client_evaluate,
+        ensure_server,
+        send_shutdown,
+        server_is_alive,
+    )
 else:
     from .g16_extio import read_g16_external_input, write_g16_external_output, write_msg
     from .mlip_backends import (
         ev_to_ha,
         forces_ev_ang_to_gradient_ha_bohr,
         hessian_ev_ang2_to_ha_bohr2,
+    )
+    from .mlip_server import (
+        MLIPServer,
+        ServerError,
+        auto_server_socket,
+        client_evaluate,
+        ensure_server,
+        send_shutdown,
+        server_is_alive,
     )
 
 
@@ -89,6 +107,88 @@ def _split_gaussian_tail(argv):
     }
 
 
+def _add_server_args(parser):
+    """Add server-related arguments to the parser."""
+    parser.add_argument(
+        "--server-socket", default=None,
+        help="Path to Unix domain socket for persistent model server.",
+    )
+    parser.add_argument(
+        "--serve", action="store_true",
+        help="Start as a persistent model server (internal use).",
+    )
+    parser.add_argument(
+        "--stop-server", action="store_true",
+        help="Send shutdown signal to a running server.",
+    )
+    parser.add_argument(
+        "--no-server", action="store_true",
+        help="Disable auto server mode; load model directly each time.",
+    )
+    parser.add_argument(
+        "--server-idle-timeout", type=int, default=600,
+        help="Server idle timeout in seconds (default: 600).",
+    )
+
+
+def _handle_serve(args, make_evaluator):
+    if not args.server_socket:
+        raise SystemExit("--serve requires --server-socket PATH")
+    evaluator = make_evaluator(args)
+    server = MLIPServer(
+        evaluator=evaluator,
+        socket_path=args.server_socket,
+        idle_timeout=args.server_idle_timeout,
+    )
+    server.serve_forever()
+    return 0
+
+
+def _handle_stop_server(args):
+    if not args.server_socket:
+        raise SystemExit("--stop-server requires --server-socket PATH")
+    if not server_is_alive(args.server_socket):
+        print("No server running at {}".format(args.server_socket), file=sys.stderr)
+        return 1
+    resp = send_shutdown(args.server_socket)
+    print("Server response: {}".format(resp), file=sys.stderr)
+    return 0
+
+
+def _evaluate_via_server(socket_path, ext):
+    """Evaluate using the persistent server."""
+    need_grad = int(ext["igrd"]) >= 1
+    need_hess = int(ext["igrd"]) >= 2
+    return client_evaluate(
+        socket_path=socket_path,
+        symbols=ext["symbols"],
+        coords_ang=ext["coords_ang"],
+        charge=ext["charge"],
+        multiplicity=ext["multiplicity"],
+        need_forces=need_grad,
+        need_hessian=need_hess,
+        hessian_mode="Analytical",
+        hessian_step=1.0e-3,
+    )
+
+
+def _evaluate_direct(make_evaluator, args, ext):
+    """Evaluate by loading the model directly in this process."""
+    need_grad = int(ext["igrd"]) >= 1
+    need_hess = int(ext["igrd"]) >= 2
+    evaluator = make_evaluator(args)
+    return evaluator.evaluate(
+        symbols=ext["symbols"],
+        coords_ang=ext["coords_ang"],
+        charge=ext["charge"],
+        multiplicity=ext["multiplicity"],
+        need_forces=need_grad,
+        need_hessian=need_hess,
+        hessian_mode="Analytical",
+        hessian_step=1.0e-3,
+    )
+
+
 def run_g16_plugin(
     argv,
     plugin_name,
@@ -106,8 +206,6 @@ def run_g16_plugin(
     )
     parser.add_argument("--model", default=default_model, help="Model name/alias/path")
     parser.add_argument("--device", default="auto", help="cpu|cuda|auto")
-    parser.add_argument("--hessian-mode", choices=["Analytical", "Numerical"], default="Analytical")
-    parser.add_argument("--hessian-step", type=float, default=1.0e-3, help="Finite-difference step in Angstrom")
     parser.add_argument("--list-models", action="store_true", help="Print model aliases and exit")
     parser.add_argument(
         "--version",
@@ -115,8 +213,19 @@ def run_g16_plugin(
         version=_version_text(plugin_name),
     )
 
+    _add_server_args(parser)
+
     if add_extra_args is not None:
         add_extra_args(parser)
+
+    # --serve / --stop-server: no Gaussian tail needed
+    if "--serve" in argv or "--stop-server" in argv:
+        args = parser.parse_args(argv)
+        if args.stop_server:
+            return _handle_stop_server(args)
+        if args.serve:
+            return _handle_serve(args, make_evaluator)
+        return 0
 
     # Help mode should work without Gaussian-generated tail arguments.
     if ("-h" in argv) or ("--help" in argv):
@@ -161,21 +270,45 @@ def run_g16_plugin(
 
     ext = read_g16_external_input(input_file)
 
-    evaluator = make_evaluator(args)
-
     need_grad = int(ext["igrd"]) >= 1
     need_hess = int(ext["igrd"]) >= 2
 
-    energy_ev, forces_ev_ang, hess_ev_ang2 = evaluator.evaluate(
-        symbols=ext["symbols"],
-        coords_ang=ext["coords_ang"],
-        charge=ext["charge"],
-        multiplicity=ext["multiplicity"],
-        need_forces=need_grad,
-        need_hessian=need_hess,
-        hessian_mode=args.hessian_mode,
-        hessian_step=float(args.hessian_step),
-    )
+    # --- Evaluation: auto server mode (default) or direct mode ---
+    if not args.no_server:
+        socket_path = args.server_socket or auto_server_socket(args)
+        server_ready = ensure_server(
+            executable=sys.argv[0],
+            custom_args=custom_args,
+            socket_path=socket_path,
+            idle_timeout=args.server_idle_timeout,
+        )
+        if server_ready:
+            try:
+                energy_ev, forces_ev_ang, hess_ev_ang2 = _evaluate_via_server(
+                    socket_path, ext
+                )
+            except ServerError as exc:
+                print(
+                    "[mlip-client] WARNING: Server error: {}. "
+                    "Falling back to direct mode.".format(exc),
+                    file=sys.stderr, flush=True,
+                )
+                energy_ev, forces_ev_ang, hess_ev_ang2 = _evaluate_direct(
+                    make_evaluator, args, ext
+                )
+        else:
+            print(
+                "[mlip-client] WARNING: Server not available, "
+                "loading model directly.",
+                file=sys.stderr, flush=True,
+            )
+            energy_ev, forces_ev_ang, hess_ev_ang2 = _evaluate_direct(
+                make_evaluator, args, ext
+            )
+    else:
+        energy_ev, forces_ev_ang, hess_ev_ang2 = _evaluate_direct(
+            make_evaluator, args, ext
+        )
 
     grad_ha_bohr = None
     if need_grad:
@@ -204,7 +337,7 @@ def run_g16_plugin(
     msg.append("output={}".format(os.path.abspath(output_file)))
     msg.append("model={}".format(args.model))
     msg.append("igrd={}".format(ext["igrd"]))
-    msg.append("hessian_mode={}".format(args.hessian_mode))
+    msg.append("server={}".format("off" if args.no_server else "on"))
     write_msg(msg_file, "\n".join(msg) + "\n")
 
     return 0

@@ -1,18 +1,13 @@
 # mlips4g16
 
-This plugin enables Machine Learning Interatomic Potentials (MLIPs) in Gaussian16 through the External interface.
-Because analytical Hessians are available, this plugin can provide more accurate TS searches, IRC, and vibrational analysis than numerical Hessians.
-If your environment has limited GPU VRAM, Numerical Hessian mode (`--hessian-mode Numerical`) is recommended.
+MLIP (Machine Learning Interatomic Potential) plugins for Gaussian16 `External` interface.
 
-MLIP plugins for Gaussian16 `External` with three model families:
-- UMA (FAIR-Chem)
-- OrbMol (orb-models)
-- MACE
+Three model families are supported:
+- **UMA** (FAIR-Chem) — default model: `uma-s-1p1`
+- **OrbMol** (orb-models) — default model: `orb_v3_conservative_omol`
+- **MACE** — default model: `MACE-OMOL-0`
 
-Default models:
-- UMA: `uma-s-1p1`
-- OrbMol: `orb_v3_conservative_omol`
-- MACE: `MACE-OMOL-0`
+All backends provide energy, gradient, and analytical Hessian. The model server starts automatically and stays resident, so repeated calls during optimization are fast.
 
 ## Quick Start (Default = UMA)
 
@@ -21,30 +16,17 @@ Default models:
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 ```
 
-2. Install package with UMA profile.
+2. Install the package with UMA profile.
 ```bash
 pip install "mlips4g16[uma]"
 ```
-This install creates the commands `uma`, `orb`, `mace` (and prefixed aliases).
 
-3. Log in once to Hugging Face for UMA model access.
+3. Log in to Hugging Face for UMA model access.
 ```bash
 huggingface-cli login
 ```
 
-4. Confirm commands and model list.
-```bash
-uma --list-models
-uma --list-tasks
-```
-If `uma` alias conflicts in your environment, use `mlips4g16-uma`.
-
-5. Confirm plugin version.
-```bash
-uma --version
-```
-
-6. Use in Gaussian input (`External`).
+4. Use in a Gaussian input file.
 ```text
 %chk=water_ext.chk
 #p external="uma" opt
@@ -57,68 +39,103 @@ H  0.758602  0.000000  0.504284
 H -0.758602  0.000000  0.504284
 ```
 
-Optional explicit options:
-```bash
-# model/task/hessian mode can still be passed explicitly
-#p external="uma --model uma-s-1p1 --task omol --hessian-mode Analytical" opt
-```
-
-Other backends with defaults:
-```bash
+Other backends:
+```text
 #p external="orb" opt
 #p external="mace" opt
 ```
 
-Additional example inputs:
-- `examples/water_external.gjf`
-- `examples/cla_external.gjf`
-- `examples/sn2_external.gjf`
+### TS Search (Recommended: freq + readfc)
 
-## Install Model Families
+> **Why two steps?** Gaussian's `opt(calcfc)` computes the initial Hessian by numerical finite difference (igrd=1), calling the plugin many times. Only `freq` sends igrd=2 and receives the exact analytical Hessian from the plugin in a single call. By running `freq` first and then `opt(readfc)`, the optimizer starts with the accurate analytical Hessian, leading to faster and more reliable convergence.
 
-PyPI install:
-```bash
-# Default profile (UMA)
-pip install "mlips4g16[uma]"
+Two-step workflow using the MLIP analytical Hessian as the initial Hessian:
 
-# Add OrbMol
-pip install "mlips4g16[orb]"
+**Step 1: Compute analytical Hessian via `freq`**
+```text
+%chk=cla_ext.chk
+#p external="uma" freq
 
-# Add MACE
-pip install "mlips4g16[mace]"
+CLA freq UMA
 
-# Add both OrbMol + MACE
-pip install "mlips4g16[orb,mace]"
+0 1
+...
+```
+Gaussian sends igrd=2, and the plugin returns the analytical Hessian. The result is stored in the `.chk` file.
 
-# Core package only (no backend dependencies)
-pip install mlips4g16
+**Step 2: TS optimization reading Hessian from `.chk`**
+```text
+%chk=cla_ext.chk
+#p external="uma" opt(readfc,noeigentest,ts)
+
+CLA TS opt UMA
+
+0 1
+...
+```
+`readfc` reads the initial Hessian from the checkpoint file. `noeigentest` skips the eigenvalue check (MLIP Hessians may have extra negative eigenvalues near the TS).
+
+> **Important: Gaussian External 2-step limit.** Gaussian's `External` interface limits optimization to 2 steps per run. If the geometry has not converged, Gaussian exits with a non-zero exit code and the optimization must be continued with `opt(restart)`:
+>
+> ```text
+> %chk=cla_ext.chk
+> #p external="uma" opt(restart)
+>
+> ```
+> `opt(restart)` reads the geometry, force constants, optimization history, and TS/noeigentest settings from the checkpoint file — do not re-specify `ts` or `noeigentest` in the restart input. No title or molecule specification is needed. Run this in a loop until Gaussian exits with code 0 (converged). See `test_mlips4g16/run.sh` for a complete shell script example.
+
+### Geometry Optimization (with analytical Hessian)
+
+Same two-step workflow with `opt(readfc)` instead of `opt(readfc,noeigentest,ts)`:
+```text
+%chk=water_ext.chk
+#p external="mace" freq
+```
+then:
+```text
+%chk=water_ext.chk
+#p external="mace" opt(readfc)
+```
+Restart if not converged:
+```text
+%chk=water_ext.chk
+#p external="mace" opt(restart)
 ```
 
-Important compatibility note:
-- UMA and MACE are currently not compatible in a single environment due to `e3nn` dependency constraints.
-- Use separate environments (for example: one env for `mlips4g16[uma]`, another env for `mlips4g16[mace]` or `mlips4g16[orb,mace]`).
+### Frequency Calculation
 
-Local source install:
+```text
+#p external="uma" freq
+```
+
+With `freq`, Gaussian requests the analytical Hessian directly (igrd=2) from the plugin.
+
+> **Note:** Run `uma --list-models` to see available models. If the `uma` alias conflicts in your environment, use `mlips4g16-uma` instead.
+
+Additional examples: `examples/cla_freq.gjf` + `examples/cla_external.gjf`, `examples/sn2_freq.gjf` + `examples/sn2_external.gjf`, `examples/water_freq.gjf` + `examples/water_external.gjf`
+
+## Installing Model Families
+
+```bash
+pip install "mlips4g16[uma]"         # UMA (default)
+pip install "mlips4g16[orb]"         # OrbMol
+pip install "mlips4g16[mace]"        # MACE
+pip install "mlips4g16[orb,mace]"    # OrbMol + MACE
+pip install mlips4g16                # core only
+```
+
+> **Note:** UMA and MACE conflict at dependency level (`e3nn`). Use separate environments.
+
+Local install:
 ```bash
 git clone https://github.com/t-0hmura/mlips4g16.git
 cd mlips4g16
 pip install ".[uma]"
-pip install ".[orb]"     # optional
-pip install ".[mace]"    # optional
-pip install .            # core only
 ```
 
-Family-specific commands:
-```bash
-uma --list-models
-orb --list-models
-mace --list-models
-```
-
-Family notes:
-- UMA: models are served from Hugging Face Hub. Run `huggingface-cli login` once.
-- OrbMol: models are provided by `orb-models` and downloaded automatically on first use.
-- MACE: models are provided by `mace-torch` and downloaded automatically on first use.
+Model download notes:
+- **UMA**: Hosted on Hugging Face Hub. Run `huggingface-cli login` once.
+- **OrbMol / MACE**: Downloaded automatically on first use.
 
 ## Upstream Model Sources
 
@@ -126,29 +143,21 @@ Family notes:
 - OrbMol / orb-models: https://github.com/orbital-materials/orb-models
 - MACE: https://github.com/ACEsuit/mace
 
-## Advanced Usage
+## Advanced Options
 
-### Backend Commands
-- Short aliases: `uma`, `orb`, `mace`
-- Prefixed aliases: `mlips4g16-uma`, `mlips4g16-orb`, `mlips4g16-mace`
+See `OPTIONS.md` for backend-specific tuning parameters.
 
-Detailed and low-impact tuning options are documented in `OPTIONS.md`.
+Command aliases:
+- Short: `uma`, `orb`, `mace`
+- Prefixed: `mlips4g16-uma`, `mlips4g16-orb`, `mlips4g16-mace`
 
 ## Troubleshooting
 
-- `external="uma"` runs the wrong plugin:
-  Use prefixed aliases to avoid collisions, for example `external="mlips4g16-uma"`.
-- `uma` command is not found after install:
-  Activate the same environment where you installed the package, then reinstall with `python -m pip install "mlips4g16[uma]"`.
-- UMA model download fails with 401/403:
-  Run `huggingface-cli login`. Some UMA model repos are gated and require manual access approval on Hugging Face.
-- Works interactively but fails in scheduler jobs:
-  Job shells may have reduced `PATH`. Use an absolute command path in Gaussian from `which uma`.
+- **`external="uma"` runs the wrong plugin** — Use `external="mlips4g16-uma"` to avoid alias conflicts.
+- **`uma` command not found** — Activate the conda environment where the package is installed.
+- **UMA model download fails (401/403)** — Run `huggingface-cli login`. Some models require access approval on Hugging Face.
+- **Works interactively but fails in PBS jobs** — Use absolute path from `which uma` in the Gaussian input.
 
-## Notes
+## References
 
-- Gaussian External references:
-  - `$g16root/g16/doc/extern.txt`
-  - `$g16root/g16/doc/extgau`
-- UMA and MACE profiles currently conflict at dependency level (`e3nn`); use separate environments.
-- `run.sh` contains a PBS smoke test template (`qsub run.sh`).
+- Gaussian External: `$g16root/g16/doc/extern.txt`, `$g16root/g16/doc/extgau`

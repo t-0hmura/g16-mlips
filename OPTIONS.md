@@ -1,70 +1,49 @@
 # OPTIONS.md (mlips4g16)
 
-This file lists detailed plugin options. For most users, defaults are enough.
+For most users, defaults are sufficient.
 
-Compatibility note:
-- UMA and MACE extras currently conflict at dependency level (`e3nn`).
-- Use separate environments when switching between UMA and MACE.
+> **Note:** UMA and MACE currently conflict at dependency level (`e3nn`). Use separate environments.
 
 ## Common Options (all backends)
 
 - `--model <name_or_alias_or_path>`
 - `--device auto|cpu|cuda`
-- `--hessian-mode Analytical|Numerical`
-- `--hessian-step <float>`
 - `--list-models`
 - `--version`
 
-Notes:
-- In `Analytical` mode, backends now fail with an explicit error if analytical Hessian is unavailable.
-- No automatic fallback from `Analytical` to `Numerical` is performed.
+## Server Options
+
+The model server starts automatically on first use and stops after idle timeout. These options are for advanced use only.
+
+- `--no-server` — Disable auto server; load model directly each time.
+- `--server-socket <path>` — Manual socket path.
+- `--stop-server` — Send shutdown to a running server.
+- `--server-idle-timeout <int>` — Idle timeout in seconds (default: 600).
 
 ## UMA Options (`uma` / `mlips4g16-uma`)
 
 - `--task <omol|omat|odac|oc20|oc25|omc>`
-- `--list-tasks`  
-  Print available UMA task names and exit.
-- `--workers <int>`  
-  Predictor worker count.
-- `--workers-per-node <int>`  
-  Optional worker cap per node.
-- `--max-neigh <int>`  
-  Override graph neighbor cap. If omitted, model default is used.
-- `--radius <float>`  
-  Override graph cutoff radius in Angstrom. If omitted, model default is used.
-- `--r-edges`  
-  Enable distance edge attributes in graph construction.
-- `--otf-graph` / `--no-otf-graph`  
-  Enable or disable OTF graph collation (`--otf-graph` is default).
+- `--list-tasks`
+- `--workers <int>` — Predictor worker count.
+- `--workers-per-node <int>` — Worker cap per node.
+- `--max-neigh <int>` — Override graph neighbor cap.
+- `--radius <float>` — Override graph cutoff radius (Angstrom).
+- `--r-edges` — Enable distance edge attributes.
+- `--otf-graph` / `--no-otf-graph` — Toggle OTF graph collation (default: on).
 
 ## OrbMol Options (`orb` / `mlips4g16-orb`)
 
-- Conservative Orb models only are supported.
+Only conservative Orb models are supported.
+
 - `--precision <str>` (default: `float32-high`)
 - `--compile-model`
-- `--loader-opt KEY=VALUE` (repeatable)  
-  Extra kwargs forwarded to Orb pretrained loader.
-- `--calc-opt KEY=VALUE` (repeatable)  
-  Extra kwargs forwarded to `ORBCalculator`.
-
-Examples:
-
-```bash
-orb --list-models --loader-opt compile=false
-orb --list-models --calc-opt stress=true
-```
+- `--loader-opt KEY=VALUE` (repeatable) — Extra kwargs for Orb loader.
+- `--calc-opt KEY=VALUE` (repeatable) — Extra kwargs for `ORBCalculator`.
 
 ## MACE Options (`mace` / `mlips4g16-mace`)
 
 - `--dtype float32|float64` (default: `float64`)
-- `--calc-opt KEY=VALUE` (repeatable)  
-  Extra kwargs forwarded to MACE calculator builders (`mace_mp`, `mace_off`, `mace_omol`, `mace_anicc`, or `MACECalculator`).
-
-Example:
-
-```bash
-mace --list-models --calc-opt default_dtype=float32
-```
+- `--calc-opt KEY=VALUE` (repeatable) — Extra kwargs for MACE calculator.
 
 ## `KEY=VALUE` Parsing Rules
 
@@ -74,9 +53,3 @@ For `--loader-opt` / `--calc-opt`:
 - `none` / `null` -> `None`
 - integer/float strings -> numeric type
 - otherwise -> string
-
-Example:
-
-```bash
---calc-opt foo=true --calc-opt n=64 --calc-opt alpha=0.25 --calc-opt mode=fast
-```
