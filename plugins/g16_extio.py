@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Gaussian External input/output helpers.
 
-Reference: Gaussian documentation distributed with your installation,
-typically `$g16root/g16/doc/extern.txt` and `$g16root/g16/doc/extgau`.
+Reference: Gaussian documentation in `$g16root/g16/doc/extern.txt` and `$g16root/g16/doc/extgau`.
 """
 
 from __future__ import absolute_import, division, print_function

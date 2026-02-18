@@ -1,4 +1,5 @@
-
+%nprocshared=8
+%mem=32GB
 %oldchk=cla_freq.chk
 %chk=cla_ext.chk
 #p external="uma" opt(readfc,noeigentest,ts,maxcycles=10000) freq(noraman)
@@ -26,4 +27,5 @@ C  1.26541886 -0.81462325 -0.96312314
 H  2.34165713 -0.68052926 -0.97608564
 H  0.79624101 -0.63542431 -1.92555185
 H -1.08129435 -2.78959300  0.47834163
+
 
