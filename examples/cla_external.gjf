@@ -1,7 +1,7 @@
 %chk=cla_ext.chk
 #p external="uma" opt(calcfc,noeigentest,ts) freq(noraman)
 
-CLA TS opt UMA - read Hessian from chk (run cla_freq.gjf first)
+CLA TS opt UMA
 
 0 1
 C -0.66709690  0.58652418 -0.02883174

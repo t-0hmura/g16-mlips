@@ -1,7 +1,7 @@
 %chk=cla_ext.chk
 #p external="mace" opt(calcfc,noeigentest,ts) freq(noraman)
 
-Water opt MACE - read Hessian from chk (run water_freq.gjf first)
+Water opt MACE
 
 0 1
 O  0.000000  0.000000  0.000000

@@ -1,7 +1,7 @@
 %chk=cla_ext.chk
 #p external="orb" opt(calcfc,noeigentest,ts) freq(noraman)
 
-SN2 TS opt ORB - read Hessian from chk (run sn2_freq.gjf first)
+SN2 TS opt ORB
 
 -1 1
 C     0.3081730000    -0.0000075500    -0.0000178300
