@@ -28,6 +28,8 @@ huggingface-cli login
 
 4. Use in a Gaussian input file.
 ```text
+%nprocshared=8
+%mem=32GB
 %chk=water_ext.chk
 #p external="uma" opt
 
@@ -53,6 +55,8 @@ Two-step workflow using the MLIP analytical Hessian as the initial Hessian:
 
 **Step 1: Compute analytical Hessian via `freq`**
 ```text
+%nprocshared=8
+%mem=32GB
 %chk=cla_ext.chk
 #p external="uma" freq
 
@@ -65,6 +69,8 @@ Gaussian sends igrd=2, and the plugin returns the analytical Hessian. The result
 
 **Step 2: TS optimization reading Hessian from `.chk`**
 ```text
+%nprocshared=8
+%mem=32GB
 %chk=cla_ext.chk
 #p external="uma" opt(readfc,noeigentest,ts)
 
@@ -82,7 +88,7 @@ CLA TS opt UMA
 > #p external="uma" opt(restart)
 >
 > ```
-> `opt(restart)` reads the geometry, force constants, optimization history, and TS/noeigentest settings from the checkpoint file — do not re-specify `ts` or `noeigentest` in the restart input. No title or molecule specification is needed. Run this in a loop until Gaussian exits with code 0 (converged). See `test_mlips4g16/run.sh` for a complete shell script example.
+> `opt(restart)` reads the geometry, force constants, optimization history, and TS/noeigentest settings from the checkpoint file — do not re-specify `ts` or `noeigentest` in the restart input. No title or molecule specification is needed. Run this in a loop until Gaussian exits with code 0 (converged).
 
 ### Geometry Optimization (with analytical Hessian)
 
