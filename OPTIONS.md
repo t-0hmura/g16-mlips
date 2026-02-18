@@ -20,6 +20,8 @@ The model server starts automatically on first use and stops after idle timeout.
 - `--stop-server` — Send shutdown to a running server.
 - `--server-idle-timeout <int>` — Idle timeout in seconds (default: 600).
 
+Auto-started servers are scoped per parent Gaussian process and stop automatically when that parent exits.
+
 ## UMA Options (`uma` / `mlips4g16-uma`)
 
 - `--task <omol|omat|odac|oc20|oc25|omc>`

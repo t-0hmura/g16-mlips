@@ -129,6 +129,9 @@ def _add_server_args(parser):
         "--server-idle-timeout", type=int, default=600,
         help="Server idle timeout in seconds (default: 600).",
     )
+    parser.add_argument(
+        "--server-parent-pid", type=int, default=None, help=argparse.SUPPRESS
+    )
 
 
 def _handle_serve(args, make_evaluator):
@@ -139,6 +142,7 @@ def _handle_serve(args, make_evaluator):
         evaluator=evaluator,
         socket_path=args.server_socket,
         idle_timeout=args.server_idle_timeout,
+        parent_pid=args.server_parent_pid,
     )
     server.serve_forever()
     return 0
@@ -275,12 +279,14 @@ def run_g16_plugin(
 
     # --- Evaluation: auto server mode (default) or direct mode ---
     if not args.no_server:
-        socket_path = args.server_socket or auto_server_socket(args)
+        parent_pid = os.getppid()
+        socket_path = args.server_socket or auto_server_socket(args, parent_pid=parent_pid)
         server_ready = ensure_server(
             executable=sys.argv[0],
             custom_args=custom_args,
             socket_path=socket_path,
             idle_timeout=args.server_idle_timeout,
+            parent_pid=parent_pid,
         )
         if server_ready:
             try:
@@ -330,15 +336,13 @@ def run_g16_plugin(
         hessian_ha_bohr2=hess_ha_bohr2,
     )
 
-    msg = []
-    msg.append("[{}] Completed".format(plugin_name))
-    msg.append("layer={}".format(gtail["layer"]))
-    msg.append("input={}".format(os.path.abspath(input_file)))
-    msg.append("output={}".format(os.path.abspath(output_file)))
-    msg.append("model={}".format(args.model))
-    msg.append("igrd={}".format(ext["igrd"]))
-    msg.append("server={}".format("off" if args.no_server else "on"))
-    write_msg(msg_file, "\n".join(msg) + "\n")
+    # Keep Gaussian external message compact to reduce per-step log noise.
+    msg = "[{}] ok igrd={} server={}".format(
+        plugin_name,
+        ext["igrd"],
+        "off" if args.no_server else "on",
+    )
+    write_msg(msg_file, msg + "\n")
 
     return 0
 
