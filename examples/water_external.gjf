@@ -2,7 +2,7 @@
 %mem=32GB
 %oldchk=wat_freq.chk
 %chk=wat_ext.chk
-#p external="mace" opt(readfc,noeigentest,ts,maxcycles=10000) freq(noraman)
+#p external="mace" opt(readfc,noeigentest,ts,maxcycles=10000)
 
 Water opt MACE
 
