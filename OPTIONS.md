@@ -11,7 +11,7 @@ For most users, defaults are sufficient.
 - `--list-models`
 - `--version`
 
-`readfc` や `%oldchk`, `nomicro`, `freq`, `calcfc`, `ts` などの挙動は Gaussian 入力の制御項目であり、CLIオプションではありません。`readfc` は `opt`/`irc` で既存の `.chk` から Hessian を再利用する場合に使用します（詳細は `README.md`）。
+Keywords such as `readfc`, `%oldchk`, `nomicro`, `freq`, `calcfc`, and `ts` are Gaussian input directives, not CLI options for this plugin. Use `readfc` with `opt`/`irc` to reuse a Hessian from an existing `.chk` file (see `README.md` for details).
 
 ## Server Options
 

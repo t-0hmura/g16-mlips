@@ -86,8 +86,8 @@ CLA TS opt UMA
 ...
 ```
 
-`readfc` reads the force constants from `%oldchk`. This applies to `opt` and `irc` runs.  
-`freq` は解析的 Hessian の生成専用で、`opt`/`irc` 自体では `igrd=2` の解析的 Hessian 取得は行われません。
+`readfc` reads the force constants from `%oldchk`. This applies to `opt` and `irc` runs.
+Note that `freq` is the only job type that requests analytical Hessian (`igrd=2`) from the plugin. `opt` and `irc` themselves never request it directly.
 
 > **Important: Gaussian External 2-step limit.** Gaussian's `External` interface limits optimization to 2 steps per run. If the geometry has not converged, Gaussian exits with a non-zero exit code and the optimization must be continued with `opt(restart)`:
 >
