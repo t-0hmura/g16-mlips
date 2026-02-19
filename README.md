@@ -10,7 +10,7 @@ Four model families are currently supported:
 - **MACE** ([mace](https://github.com/ACEsuit/mace)) — default model: `MACE-OMOL-0`
 - **AIMNet2** ([aimnetcentral](https://github.com/isayevlab/aimnetcentral)) — default model: `aimnet2`
 
-All backends provide energy, gradient, and **analytical Hessian** to **Gaussian 16**.  
+All backends provide energy, gradient, and **analytical Hessian** for **Gaussian 16**.  
 
 > The model server starts automatically and stays resident, so repeated calls during optimization are fast.  
 
@@ -117,7 +117,7 @@ pip install "g16-mlips[orb,mace,aimnet2]"  # ORB + MACE + AIMNet2
 pip install g16-mlips                # core only
 ```
 
-> **Note:** UMA and MACE conflict at dependency level (`e3nn`). Use separate environments.
+> **Note:** UMA and MACE have a dependency conflict (`e3nn`). Use separate environments.
 
 Local install:
 ```bash
