@@ -1097,14 +1097,14 @@ class MACEEvaluator(_BackendBase):
 
 
 class AIMNet2Evaluator(_BackendBase):
-    """AIMNet2 backend via aimnet2calc / aimnetcentral."""
+    """AIMNet2 backend via aimnet."""
 
     def __init__(self, model, device, calc_kwargs=None):
         try:
             import torch
         except Exception as exc:
             raise BackendError(
-                "AIMNet2 backend requires torch and an AIMNet2 package. "
+                "AIMNet2 backend requires torch and `aimnet`. "
                 "Install with: pip install 'g16-mlips[aimnet2]'"
             ) from exc
 
@@ -1157,31 +1157,14 @@ class AIMNet2Evaluator(_BackendBase):
 
     def _load_calculator(self, model_name):
         calc = None
-        last_exc = None
-
-        candidates = []
         try:
-            from aimnet2calc import AIMNet2Calculator
-
-            candidates.append((AIMNet2Calculator, "aimnet2calc"))
+            from aimnet.calculators import AIMNet2Calculator
         except Exception as exc:
-            last_exc = exc
-            try:
-                from aimnetcentral import AIMNet2Calculator
-
-                candidates.append((AIMNet2Calculator, "aimnetcentral"))
-            except Exception as exc2:
-                last_exc = exc2
-                raise BackendError(
-                    "AIMNet2 backend requires `aimnet2calc` or `aimnetcentral`. "
-                    "Install with: pip install g16-mlips[aimnet2]"
-                ) from last_exc
-
-        if not candidates:
             raise BackendError(
-                "AIMNet2 backend requires `aimnet2calc` or `aimnetcentral`. "
-                "Install with: pip install g16-mlips[aimnet2]"
-            ) from last_exc
+                "AIMNet2 backend requires `aimnet`. Install with: pip install g16-mlips[aimnet2]"
+            ) from exc
+
+        last_exc = None
 
         init_kwargs_base = [
             {"device": self.device, **self.calc_kwargs},
@@ -1190,37 +1173,33 @@ class AIMNet2Evaluator(_BackendBase):
             {},
         ]
 
-        for calc_factory, _source in candidates:
-            for init_kwargs in init_kwargs_base:
-                # Drop invalid keys for this attempt if constructor is strict.
+        for init_kwargs in init_kwargs_base:
+            # Drop invalid keys for this attempt if constructor is strict.
+            try:
+                calc = AIMNet2Calculator(model_name, **init_kwargs)
+            except TypeError:
                 try:
-                    calc = calc_factory(model_name, **init_kwargs)
+                    calc = AIMNet2Calculator(model=str(model_name), **init_kwargs)
                 except TypeError:
                     try:
-                        calc = calc_factory(model=str(model_name), **init_kwargs)
+                        calc = AIMNet2Calculator(str(model_name))
                     except TypeError:
-                        try:
-                            calc = calc_factory(str(model_name))
-                        except TypeError:
-                            if init_kwargs:
-                                filtered = {}
-                                for key in init_kwargs:
-                                    if key == "device":
-                                        filtered[key] = init_kwargs[key]
-                                try:
-                                    calc = calc_factory(model_name, **filtered)
-                                except Exception as exc:
-                                    last_exc = exc
-                                    continue
-                            else:
-                                try:
-                                    calc = calc_factory(str(model_name))
-                                except Exception as exc:
-                                    last_exc = exc
-                                    continue
-                        except Exception as exc:
-                            last_exc = exc
-                            continue
+                        if init_kwargs:
+                            filtered = {}
+                            for key in init_kwargs:
+                                if key == "device":
+                                    filtered[key] = init_kwargs[key]
+                            try:
+                                calc = AIMNet2Calculator(model_name, **filtered)
+                            except Exception as exc:
+                                last_exc = exc
+                                continue
+                        else:
+                            try:
+                                calc = AIMNet2Calculator(str(model_name))
+                            except Exception as exc:
+                                last_exc = exc
+                                continue
                     except Exception as exc:
                         last_exc = exc
                         continue
@@ -1228,10 +1207,10 @@ class AIMNet2Evaluator(_BackendBase):
                     last_exc = exc
                     continue
 
-                if calc is not None:
-                    return calc
+            if calc is not None:
+                return calc
 
-        raise BackendError("Failed to initialize AIMNet2 model '{}' from {}.".format(model_name, candidates[0][1])) from last_exc
+        raise BackendError("Failed to initialize AIMNet2 model '{}' via aimnet.".format(model_name)) from last_exc
 
     def _call(self, symbols, coords_ang, charge, multiplicity, with_hessian):
         from ase import Atoms
