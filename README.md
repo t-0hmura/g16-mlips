@@ -28,6 +28,7 @@ huggingface-cli login
 ```
 
 4. Use in a Gaussian input file. `nomicro` is required. If you use ORB/MACE, use `external="orb"`/`external="mace"`.
+For detailed Gaussian `External` usage, see https://gaussian.com/external/
 ```text
 %nprocshared=8
 %mem=32GB
@@ -157,4 +158,5 @@ If you use this package, please cite:
 
 ## References
 
+- Gaussian External interface (official): https://gaussian.com/external/
 - Gaussian External: `$g16root/g16/doc/extern.txt`, `$g16root/g16/doc/extgau`
