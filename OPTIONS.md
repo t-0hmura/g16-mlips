@@ -13,17 +13,6 @@ For most users, defaults are sufficient.
 
 Keywords such as `readfc`, `%oldchk`, `nomicro`, `freq`, `calcfc`, and `ts` are Gaussian input directives, not CLI options for this plugin. Use `readfc` with `opt`/`irc` to reuse a Hessian from an existing `.chk` file (see `README.md` for details).
 
-## Server Options
-
-The model server starts automatically on first use and stops after idle timeout. These options are for advanced use only.
-
-- `--no-server` — Disable auto server; load model directly each time.
-- `--server-socket <path>` — Manual socket path.
-- `--stop-server` — Send shutdown to a running server.
-- `--server-idle-timeout <int>` — Idle timeout in seconds (default: 600).
-
-Auto-started servers are scoped per parent Gaussian process and stop automatically when that parent exits.
-
 ## UMA Options (`uma` / `g16-mlips-uma`)
 
 Available models (default: **`uma-s-1p1`**):
@@ -86,6 +75,17 @@ The `mp:` prefix selects Materials Project models, `off:` selects organic force 
 
 - `--dtype float32|float64` (default: `float64`)
 - `--calc-opt KEY=VALUE` (repeatable) — Extra kwargs for MACE calculator.
+
+## Server Options
+
+The model server starts automatically on first use and stops after idle timeout. These options are for advanced use only.
+
+- `--no-server` — Disable auto server; load model directly each time.
+- `--server-socket <path>` — Manual socket path.
+- `--stop-server` — Send shutdown to a running server.
+- `--server-idle-timeout <int>` — Idle timeout in seconds (default: 600).
+
+Auto-started servers are scoped per parent Gaussian process and stop automatically when that parent exits.
 
 ## `KEY=VALUE` Parsing Rules
 
