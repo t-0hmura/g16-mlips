@@ -21,12 +21,12 @@ pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 pip install "g16-mlips[uma]"
 ```
 
-3. Log in to Hugging Face for UMA model access.
+3. Log in to Hugging Face for UMA model access. (No need for ORB/MACE)
 ```bash
 huggingface-cli login
 ```
 
-4. Use in a Gaussian input file.
+4. Use in a Gaussian input file. `nomicro` is required.
 ```text
 %nprocshared=8
 %mem=32GB
