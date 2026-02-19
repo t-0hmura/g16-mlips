@@ -11,6 +11,8 @@ For most users, defaults are sufficient.
 - `--list-models`
 - `--version`
 
+`readfc` や `%oldchk`, `nomicro`, `freq`, `calcfc`, `ts` などの挙動は Gaussian 入力の制御項目であり、CLIオプションではありません。`readfc` は `opt`/`irc` で既存の `.chk` から Hessian を再利用する場合に使用します（詳細は `README.md`）。
+
 ## Server Options
 
 The model server starts automatically on first use and stops after idle timeout. These options are for advanced use only.

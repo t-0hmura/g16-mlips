@@ -49,13 +49,12 @@ Other backends:
 
 > **Important:** For Gaussian `External` geometry optimization, always include `nomicro` in `opt(...)`.
 
-### TS Search (Recommended: freq + readfc)
+### Analytical Hessian
 
-> **Why two steps?** Gaussian's `opt(calcfc)` computes the initial Hessian by numerical finite difference (igrd=1), calling the plugin many times. Only `freq` sends igrd=2 and receives the exact analytical Hessian from the plugin in a single call. By running `freq` first and then `opt(readfc)`, the optimizer starts with the accurate analytical Hessian, leading to faster and more reliable convergence.
+Gaussian `freq` (with `external=...`) is the only path that requests the plugin's analytical Hessian directly.
 
-Two-step workflow using the MLIP analytical Hessian as the initial Hessian:
+**Frequency calculation**
 
-**Step 1: Compute analytical Hessian via `freq`**
 ```text
 %nprocshared=8
 %mem=32GB
@@ -67,56 +66,40 @@ CLA freq UMA
 0 1
 ...
 ```
-Gaussian sends igrd=2, and the plugin returns the analytical Hessian. The result is stored in the `.chk` file.
+Gaussian sends `igrd=2` and stores the result in the `.chk` file.
 
-**Step 2: TS optimization reading Hessian from `.chk`**
+### Using analytical Hessian in optimization jobs
+
+To use MLIP analytical Hessian in `opt`/`irc`, read the Hessian from an existing checkpoint using Gaussian `%oldchk` + `readfc`.
+
 ```text
 %nprocshared=8
 %mem=32GB
 %chk=cla_ext.chk
-#p external="uma" opt(readfc,noeigentest,ts,nomicro)
+%oldchk=cla_ext.chk
+
+#p external="uma" opt(readfc,nomicro)
 
 CLA TS opt UMA
 
 0 1
 ...
 ```
-`readfc` reads the initial Hessian from the checkpoint file. `noeigentest` skips the eigenvalue check (MLIP Hessians may have extra negative eigenvalues near the TS).
+
+`readfc` reads the force constants from `%oldchk`. This applies to `opt` and `irc` runs.  
+`freq` は解析的 Hessian の生成専用で、`opt`/`irc` 自体では `igrd=2` の解析的 Hessian 取得は行われません。
 
 > **Important: Gaussian External 2-step limit.** Gaussian's `External` interface limits optimization to 2 steps per run. If the geometry has not converged, Gaussian exits with a non-zero exit code and the optimization must be continued with `opt(restart)`:
 >
 > ```text
+> %nprocshared=8
+> %mem=32GB
 > %chk=cla_ext.chk
-> #p external="uma" opt(restart,nomicro)
+> %oldchk=cla_ext.chk
 >
+> #p external="uma" opt(restart,nomicro)
 > ```
-> `opt(restart)` reads the geometry, force constants, optimization history, and TS/noeigentest settings from the checkpoint file — do not re-specify `ts` or `noeigentest` in the restart input. No title or molecule specification is needed. Run this in a loop until Gaussian exits with code 0 (converged).
-
-### Geometry Optimization (with analytical Hessian)
-
-Same two-step workflow with `opt(readfc)` instead of `opt(readfc,noeigentest,ts)`:
-```text
-%chk=water_ext.chk
-#p external="mace" freq
-```
-then:
-```text
-%chk=water_ext.chk
-#p external="mace" opt(readfc,nomicro)
-```
-Restart if not converged:
-```text
-%chk=water_ext.chk
-#p external="mace" opt(restart,nomicro)
-```
-
-### Frequency Calculation
-
-```text
-#p external="uma" freq
-```
-
-With `freq`, Gaussian requests the analytical Hessian directly (igrd=2) from the plugin.
+> `opt(restart)` reads the optimization history from the checkpoint; do not re-specify `ts` or `noeigentest` in the restart input.
 
 > **Note:** Run `uma --list-models` to see available models. If the `uma` alias conflicts in your environment, use `g16-mlips-uma` instead.
 
