@@ -33,7 +33,7 @@ pip install "g16-mlips[uma]"
 huggingface-cli login
 ```
 
-4. Use in a Gaussian input file. `nomicro` is required. If you use ORB/MACE/AIMNet2, use `external="orb"`/`external="mace"`/`external="aimnet2"`.
+4. Use in a Gaussian input file. **`nomicro` is required**. If you use ORB/MACE/AIMNet2, use `external="orb"`/`external="mace"`/`external="aimnet2"`.
 For detailed Gaussian `External` usage, see https://gaussian.com/external/
 ```text
 %nprocshared=8
