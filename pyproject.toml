@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mlips4g16"
+name = "g16-mlips"
 version = "0.1.0"
 description = "MLIP plugins for Gaussian16 External (UMA, OrbMol, MACE)"
 readme = "README.md"
@@ -19,10 +19,13 @@ orb = ["torch>=2.8.0", "orb-models"]
 mace = ["torch>=2.8.0", "mace-torch"]
 
 [project.urls]
-Homepage = "https://github.com/t-0hmura/mlips4g16"
-Repository = "https://github.com/t-0hmura/mlips4g16"
+Homepage = "https://github.com/t-0hmura/g16-mlips"
+Repository = "https://github.com/t-0hmura/g16-mlips"
 
 [project.scripts]
+g16-mlips-uma = "mlips4g16_plugins.uma_g16:main"
+g16-mlips-orb = "mlips4g16_plugins.orbmol_g16:main"
+g16-mlips-mace = "mlips4g16_plugins.mace_g16:main"
 mlips4g16-uma = "mlips4g16_plugins.uma_g16:main"
 mlips4g16-orb = "mlips4g16_plugins.orbmol_g16:main"
 mlips4g16-mace = "mlips4g16_plugins.mace_g16:main"
