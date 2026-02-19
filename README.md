@@ -9,7 +9,10 @@ Four model families are currently supported:
 - **AIMNet2** ([aimnetcentral](https://github.com/isayevlab/aimnetcentral)) — default model: `aimnet2`
 
 All backends provide energy, gradient, and **analytical Hessian** to **Gaussian 16**.  
+
 > The model server starts automatically and stays resident, so repeated calls during optimization are fast.  
+
+Requires **Python 3.9** or later.
 
 ## Quick Start (Default = UMA)
 
@@ -52,10 +55,11 @@ Other backends:
 ```
 
 > **Important:** For Gaussian `External` geometry optimization, always include `nomicro` in `opt(...)`.
+> Without it, Gaussian uses micro-iterations that assume an internal gradient routine, which is incompatible with the external interface.
 
 ### Analytical Hessian (optional)
 
-Optimization and IRC work without an initial Hessian — Gaussian will build one internally. Providing an MLIP analytical Hessian via `freq` + `readfc` improves convergence, especially for TS searches.
+Optimization and IRC can run without providing an initial Hessian — Gaussian builds one internally using estimated force constants. Providing an MLIP analytical Hessian via `freq` + `readfc` improves convergence, especially for TS searches.
 
 Gaussian `freq` (with `external=...`) is the only path that requests the plugin's analytical Hessian directly.
 

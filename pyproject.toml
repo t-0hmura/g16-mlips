@@ -5,8 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "g16-mlips"
 dynamic = ["version"]
-description = "MLIP plugins for Gaussian16 External (UMA, OrbMol, MACE, AIMNet2)"
+description = "MLIP plugins for Gaussian16 External (UMA, ORB, MACE, AIMNet2)"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.9"
 dependencies = [
     "numpy",

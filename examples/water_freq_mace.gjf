@@ -3,7 +3,7 @@
 %chk=wat_freq.chk
 #p external="mace" freq(noraman)
 
-Water opt MACE
+Water freq MACE
 
 0 1
 O  0.000000  0.000000  0.000000

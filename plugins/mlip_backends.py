@@ -103,6 +103,17 @@ AIMNET2_MODELS_FALLBACK = [
 ]
 
 
+def _unique_ordered(items):
+    """Return items preserving first-occurrence order, removing duplicates."""
+    seen = set()
+    out = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
 class BackendError(RuntimeError):
     """Raised for backend-specific runtime failures."""
 
@@ -159,12 +170,6 @@ def _as_square_hessian(hess_like, natoms):
         return h.reshape(dof, dof)
     if h.ndim == 2 and h.shape == (dof, dof):
         return h
-    if h.ndim == 3:
-        # (N, 3N, 3N?) and (3N, N, 3) fallback normalization to (3N,3N)
-        if h.shape[0] * 3 == dof and h.shape[1] == 3:
-            return h.reshape(dof, -1)
-        if h.shape[0] == dof and h.shape[2] == 3:
-            return h.reshape(dof, -1)
     return h.reshape(dof, dof)
 
 
@@ -292,17 +297,8 @@ def get_available_uma_tasks():
     try:
         from fairchem.core.units.mlip_unit.api.inference import UMATask
 
-        vals = []
-        for t in UMATask:
-            val = getattr(t, "value", None)
-            vals.append(str(val if val is not None else t))
-        # preserve order and uniqueness
-        seen = set()
-        ordered = []
-        for x in vals:
-            if x not in seen:
-                seen.add(x)
-                ordered.append(x)
+        vals = [str(getattr(t, "value", None) or t) for t in UMATask]
+        ordered = _unique_ordered(vals)
         if ordered:
             return ordered
     except Exception:
@@ -323,21 +319,13 @@ def get_available_orb_models():
         models = list(ORB_MODELS_FALLBACK)
 
     out = []
-    seen = set()
     for model in models:
-        if _is_deprecated_orb_model(model):
+        if _is_deprecated_orb_model(model) or not _is_conservative_orb_model(model):
             continue
-        if not _is_conservative_orb_model(model):
-            continue
-        for cand in (model, model.replace("-", "_")):
-            if _is_deprecated_orb_model(cand):
-                continue
-            if not _is_conservative_orb_model(cand):
-                continue
-            if cand not in seen:
-                seen.add(cand)
-                out.append(cand)
-    return out
+        # Include both dash and underscore variants
+        out.append(model)
+        out.append(model.replace("-", "_"))
+    return _unique_ordered(out)
 
 
 def get_available_mace_models():
@@ -369,29 +357,14 @@ def get_available_mace_models():
     )
     out.append("<local_model_path>")
     out.append("<https://...model>")
-
-    # preserve order and uniqueness
-    seen = set()
-    uniq = []
-    for item in out:
-        if item not in seen:
-            seen.add(item)
-            uniq.append(item)
-    return uniq
+    return _unique_ordered(out)
 
 
 def get_available_aimnet2_models():
     out = list(AIMNET2_MODELS_FALLBACK)
     out.append("<local_model_path>")
     out.append("<https://...model>")
-
-    seen = set()
-    uniq = []
-    for item in out:
-        if item not in seen:
-            seen.add(item)
-            uniq.append(item)
-    return uniq
+    return _unique_ordered(out)
 
 
 class _BackendBase(object):
@@ -499,26 +472,17 @@ class UMAEvaluator(_BackendBase):
         self.r_edges = bool(r_edges)
         self.otf_graph = bool(otf_graph)
 
-        predictor_attempts = []
-        predictor_attempts.append(
-            {
-                "device": self.device,
-                "workers": self.workers,
-                "workers_per_node": self.workers_per_node,
-            }
+        predictor_attempts = [
+            {"device": self.device, "workers": self.workers, "workers_per_node": self.workers_per_node},
+            {"device": self.device, "workers": self.workers},
+            {"device": self.device},
+        ]
+        # Remove None values and deduplicate
+        uniq_attempts = _unique_ordered(
+            tuple(sorted((k, v) for k, v in kw.items() if v is not None))
+            for kw in predictor_attempts
         )
-        predictor_attempts.append({"device": self.device, "workers": self.workers})
-        predictor_attempts.append({"device": self.device})
-
-        uniq_attempts = []
-        seen = set()
-        for kwargs in predictor_attempts:
-            clean = {k: v for k, v in kwargs.items() if v is not None}
-            key = tuple(sorted(clean.items()))
-            if key in seen:
-                continue
-            seen.add(key)
-            uniq_attempts.append(clean)
+        uniq_attempts = [dict(kv) for kv in uniq_attempts]
 
         last_exc = None
         self._predictor = None
@@ -709,28 +673,21 @@ class OrbMolEvaluator(_BackendBase):
 
     def _load_model(self):
         # Handle API differences between orb-models releases.
-        attempts = []
-        for base in (
+        bases = [
             {"device": self.device, "precision": self.precision, "compile": self.compile_model},
             {"device": self.device, "precision": self.precision},
             {"device": self.device},
             {},
-        ):
-            merged = dict(base)
-            merged.update(self.loader_kwargs)
-            attempts.append(merged)
-
+        ]
+        attempts = [dict(base, **self.loader_kwargs) for base in bases]
         if self.loader_kwargs:
             attempts.append(dict(self.loader_kwargs))
 
-        uniq_attempts = []
-        seen = set()
-        for kwargs in attempts:
-            key = tuple(sorted(kwargs.items()))
-            if key in seen:
-                continue
-            seen.add(key)
-            uniq_attempts.append(kwargs)
+        uniq_attempts = [
+            dict(kv) for kv in _unique_ordered(
+                tuple(sorted(kw.items())) for kw in attempts
+            )
+        ]
 
         last_exc = None
         for kwargs in uniq_attempts:
@@ -748,46 +705,41 @@ class OrbMolEvaluator(_BackendBase):
     def _build_ase_calculator(self):
         calc_kwargs = dict(self.calc_kwargs)
 
-        # New API: orb_models.forcefield.inference.calculator.ORBCalculator
+        # Try constructor argument combinations: with adapter, with/without device
+        def _try_construct(cls):
+            arg_combos = []
+            if self._adapter is not None:
+                arg_combos.append(((self._model_obj, self._adapter), {"device": self.device, **calc_kwargs}))
+                arg_combos.append(((self._model_obj, self._adapter), dict(calc_kwargs)))
+            arg_combos.append(((self._model_obj,), {"device": self.device, **calc_kwargs}))
+            arg_combos.append(((self._model_obj,), dict(calc_kwargs)))
+
+            for args, kwargs in arg_combos:
+                try:
+                    return cls(*args, **kwargs)
+                except TypeError:
+                    continue
+            return None
+
+        # New API path
         try:
             from orb_models.forcefield.inference.calculator import ORBCalculator
-
-            if self._adapter is not None:
-                try:
-                    return ORBCalculator(self._model_obj, self._adapter, device=self.device, **calc_kwargs)
-                except TypeError:
-                    pass
-                try:
-                    return ORBCalculator(self._model_obj, self._adapter, **calc_kwargs)
-                except TypeError:
-                    pass
-
-            try:
-                return ORBCalculator(self._model_obj, device=self.device, **calc_kwargs)
-            except TypeError:
-                return ORBCalculator(self._model_obj, **calc_kwargs)
-        except Exception:
+            calc = _try_construct(ORBCalculator)
+            if calc is not None:
+                return calc
+        except ImportError:
             pass
 
         # Legacy API fallback
         try:
             from orb_models.forcefield.calculator import ORBCalculator
+            calc = _try_construct(ORBCalculator)
+            if calc is not None:
+                return calc
+        except ImportError:
+            pass
 
-            if self._adapter is not None:
-                try:
-                    return ORBCalculator(self._model_obj, self._adapter, device=self.device, **calc_kwargs)
-                except TypeError:
-                    pass
-                try:
-                    return ORBCalculator(self._model_obj, self._adapter, **calc_kwargs)
-                except TypeError:
-                    pass
-            try:
-                return ORBCalculator(self._model_obj, device=self.device, **calc_kwargs)
-            except TypeError:
-                return ORBCalculator(self._model_obj, **calc_kwargs)
-        except Exception as exc:
-            raise BackendError("Failed to build ORBCalculator: {}".format(exc))
+        raise BackendError("Failed to build ORBCalculator.")
 
     def energy_forces(self, symbols, coords_ang, charge, multiplicity):
         from ase import Atoms
@@ -810,20 +762,36 @@ class OrbMolEvaluator(_BackendBase):
                 return key
         raise BackendError("Could not find an energy key in Orb model output.")
 
+    def _autograd_hessian(self, e_fn, flat0, natoms):
+        """Compute autograd Hessian, handling model state save/restore and GPU cleanup."""
+        model_state = _prepare_model_for_autograd_hessian(self._model_obj, self._torch)
+        try:
+            hess = self._torch.autograd.functional.hessian(e_fn, flat0, vectorize=False)
+            hess = hess.view(natoms * 3, natoms * 3)
+            return hess.detach().cpu().numpy().astype(np.float64)
+        finally:
+            _restore_model_after_autograd_hessian(self._model_obj, model_state)
+            if str(self.device).startswith("cuda"):
+                try:
+                    self._torch.cuda.empty_cache()
+                except Exception:
+                    pass
+
     def analytical_hessian(self, symbols, coords_ang, charge, multiplicity):
         if not self._conservative:
             raise BackendError(
                 "Analytical Hessian is typically meaningful only for conservative Orb models."
             )
 
-        # New API path: model + adapter (autograd Hessian)
+        from ase import Atoms
+
+        atoms = Atoms(symbols=symbols, positions=np.asarray(coords_ang, dtype=np.float64))
+        atoms.info["charge"] = float(charge)
+        atoms.info["spin"] = float(multiplicity)
+        nat = len(symbols)
+
+        # New API path: model + adapter
         if self._adapter is not None and hasattr(self._model_obj, "predict"):
-            from ase import Atoms
-
-            atoms = Atoms(symbols=symbols, positions=np.asarray(coords_ang, dtype=np.float64))
-            atoms.info["charge"] = float(charge)
-            atoms.info["spin"] = float(multiplicity)
-
             graph = self._adapter.from_ase_atoms(atoms=atoms, device=self.device)
             if not hasattr(graph, "node_features"):
                 raise BackendError("Unexpected Orb graph format: missing node_features.")
@@ -832,44 +800,18 @@ class OrbMolEvaluator(_BackendBase):
             if "positions" not in node_features:
                 raise BackendError("Unexpected Orb graph format: missing positions.")
 
-            pos0 = node_features["positions"]
-            flat0 = (
-                pos0.reshape(-1)
-                .detach()
-                .clone()
-                .to(self.device)
-                .requires_grad_(True)
-            )
-            model_state = _prepare_model_for_autograd_hessian(self._model_obj, self._torch)
+            flat0 = node_features["positions"].reshape(-1).detach().clone().to(self.device).requires_grad_(True)
 
-            try:
+            def e_fn(flat):
+                node_features["positions"] = flat.view(-1, 3)
+                out = self._model_obj.predict(graph)
+                return out[self._energy_key(out)].squeeze()
 
-                def e_fn(flat):
-                    node_features["positions"] = flat.view(-1, 3)
-                    out = self._model_obj.predict(graph)
-                    ek = self._energy_key(out)
-                    return out[ek].squeeze()
-
-                hess = self._torch.autograd.functional.hessian(e_fn, flat0, vectorize=False)
-                nat = len(symbols)
-                hess = hess.view(nat * 3, nat * 3)
-                return hess.detach().cpu().numpy().astype(np.float64)
-            finally:
-                _restore_model_after_autograd_hessian(self._model_obj, model_state)
-                if str(self.device).startswith("cuda"):
-                    try:
-                        self._torch.cuda.empty_cache()
-                    except Exception:
-                        pass
+            return self._autograd_hessian(e_fn, flat0, nat)
 
         # Legacy API fallback path
         try:
             from orb_models.forcefield import atomic_system
-            from ase import Atoms
-
-            atoms = Atoms(symbols=symbols, positions=np.asarray(coords_ang, dtype=np.float64))
-            atoms.info["charge"] = float(charge)
-            atoms.info["spin"] = float(multiplicity)
 
             graph = atomic_system.ase_atoms_to_atom_graphs(
                 atoms,
@@ -884,35 +826,17 @@ class OrbMolEvaluator(_BackendBase):
             if pos_attr is None:
                 raise BackendError("Could not locate position tensor for legacy Orb API.")
 
-            pos0 = getattr(graph, pos_attr)
             flat0 = (
-                self._torch.as_tensor(pos0, device=self.device)
-                .reshape(-1)
-                .detach()
-                .clone()
-                .requires_grad_(True)
+                self._torch.as_tensor(getattr(graph, pos_attr), device=self.device)
+                .reshape(-1).detach().clone().requires_grad_(True)
             )
-            model_state = _prepare_model_for_autograd_hessian(self._model_obj, self._torch)
 
-            try:
+            def e_fn(flat):
+                setattr(graph, pos_attr, flat.view(-1, 3))
+                out = self._model_obj.predict(graph, split=False)
+                return out[self._energy_key(out)].squeeze()
 
-                def e_fn(flat):
-                    setattr(graph, pos_attr, flat.view(-1, 3))
-                    out = self._model_obj.predict(graph, split=False)
-                    ek = self._energy_key(out)
-                    return out[ek].squeeze()
-
-                hess = self._torch.autograd.functional.hessian(e_fn, flat0, vectorize=False)
-                nat = len(symbols)
-                hess = hess.view(nat * 3, nat * 3)
-                return hess.detach().cpu().numpy().astype(np.float64)
-            finally:
-                _restore_model_after_autograd_hessian(self._model_obj, model_state)
-                if str(self.device).startswith("cuda"):
-                    try:
-                        self._torch.cuda.empty_cache()
-                    except Exception:
-                        pass
+            return self._autograd_hessian(e_fn, flat0, nat)
         except Exception as exc:
             raise BackendError("Analytical Hessian failed for OrbMol: {}".format(exc))
 
@@ -1116,14 +1040,10 @@ class AIMNet2Evaluator(_BackendBase):
         self.calc_kwargs = dict(calc_kwargs or {})
 
         self._calculator = self._load_calculator(self.model)
-        self._torch_dtype = torch.float64
-
-    def _normalize_hessian(self, hess_like, natoms):
-        return _as_square_hessian(hess_like, natoms)
 
     @staticmethod
     def _to_scalar(value):
-        if hasattr(value, "detach"):
+        if type(value).__module__.startswith("torch"):
             value = value.detach().cpu().numpy()
         if hasattr(value, "item"):
             return float(value.item())
@@ -1131,32 +1051,28 @@ class AIMNet2Evaluator(_BackendBase):
 
     @staticmethod
     def _extract_array(value, force_2d):
-        arr = np.asarray(value, dtype=np.float64).reshape(-1)
+        if type(value).__module__.startswith("torch"):
+            value = value.detach().cpu().numpy()
+        arr = np.asarray(value, dtype=np.float64)
         if force_2d:
-            if arr.ndim == 1:
-                return arr.reshape(-1, 3)
-            if arr.ndim > 2:
-                return arr.reshape(-1, 3)
-        return np.asarray(value, dtype=np.float64)
+            if arr.ndim == 3 and arr.shape[0] == 1:
+                arr = arr[0]
+            return arr.reshape(-1, 3)
+        return arr
 
     @staticmethod
-    def _pick_first_available(mapping, names, fallback_lower=None):
+    def _pick_first_available(mapping, names):
         for name in names:
             if name in mapping:
                 return mapping[name]
-        if fallback_lower is True:
-            for name in mapping:
-                if str(name).lower() in names:
-                    return mapping[name]
-        if fallback_lower:
-            wanted = {str(x).lower() for x in names}
-            for key, value in mapping.items():
-                if str(key).lower() in wanted:
-                    return value
+        lower = {str(k).lower(): v for k, v in mapping.items()}
+        for name in names:
+            val = lower.get(str(name).lower())
+            if val is not None:
+                return val
         return None
 
     def _load_calculator(self, model_name):
-        calc = None
         try:
             from aimnet.calculators import AIMNet2Calculator
         except Exception as exc:
@@ -1164,62 +1080,45 @@ class AIMNet2Evaluator(_BackendBase):
                 "AIMNet2 backend requires `aimnet`. Install with: pip install g16-mlips[aimnet2]"
             ) from exc
 
+        # Build a flat list of (args, kwargs) constructor attempts.
+        kwargs_variants = _unique_ordered(
+            tuple(sorted(kw.items())) for kw in [
+                {"device": self.device, **self.calc_kwargs},
+                {"device": self.device},
+                dict(self.calc_kwargs),
+                {},
+            ]
+        )
+
+        attempts = []
+        for kw_tuple in kwargs_variants:
+            kw = dict(kw_tuple)
+            attempts.append(((model_name,), kw))
+            attempts.append(((), {"model": str(model_name), **kw}))
+            if kw:
+                attempts.append(((str(model_name),), {}))
+
         last_exc = None
-
-        init_kwargs_base = [
-            {"device": self.device, **self.calc_kwargs},
-            {"device": self.device},
-            dict(self.calc_kwargs),
-            {},
-        ]
-
-        for init_kwargs in init_kwargs_base:
-            # Drop invalid keys for this attempt if constructor is strict.
+        for args, kwargs in attempts:
             try:
-                calc = AIMNet2Calculator(model_name, **init_kwargs)
-            except TypeError:
-                try:
-                    calc = AIMNet2Calculator(model=str(model_name), **init_kwargs)
-                except TypeError:
-                    try:
-                        calc = AIMNet2Calculator(str(model_name))
-                    except TypeError:
-                        if init_kwargs:
-                            filtered = {}
-                            for key in init_kwargs:
-                                if key == "device":
-                                    filtered[key] = init_kwargs[key]
-                            try:
-                                calc = AIMNet2Calculator(model_name, **filtered)
-                            except Exception as exc:
-                                last_exc = exc
-                                continue
-                        else:
-                            try:
-                                calc = AIMNet2Calculator(str(model_name))
-                            except Exception as exc:
-                                last_exc = exc
-                                continue
-                    except Exception as exc:
-                        last_exc = exc
-                        continue
-                except Exception as exc:
-                    last_exc = exc
-                    continue
-
-            if calc is not None:
-                return calc
+                return AIMNet2Calculator(*args, **kwargs)
+            except Exception as exc:
+                last_exc = exc
 
         raise BackendError("Failed to initialize AIMNet2 model '{}' via aimnet.".format(model_name)) from last_exc
 
     def _call(self, symbols, coords_ang, charge, multiplicity, with_hessian):
         from ase import Atoms
 
+        torch = self._torch
         atoms = Atoms(symbols=symbols, positions=np.asarray(coords_ang, dtype=np.float64))
         numbers = np.asarray(atoms.get_atomic_numbers(), dtype=np.int64)
 
+        coord_np = np.asarray(coords_ang, dtype=np.float64)[None, :, :]
+        coord_input = torch.tensor(coord_np, requires_grad=bool(with_hessian))
+
         data = {
-            "coord": np.asarray(coords_ang, dtype=np.float32)[None, :, :],
+            "coord": coord_input,
             "numbers": numbers[None, :],
             "charge": np.asarray([float(charge)], dtype=np.float32),
             "mult": np.asarray([float(multiplicity)], dtype=np.float32),
@@ -1232,9 +1131,10 @@ class AIMNet2Evaluator(_BackendBase):
                 hessian=bool(with_hessian),
             )
         except Exception:
+            coord_fallback = torch.tensor(coord_np, requires_grad=bool(with_hessian))
             out = self._calculator(
                 dict(
-                    coords=np.asarray(coords_ang, dtype=np.float32)[None, :, :],
+                    coords=coord_fallback,
                     numbers=numbers[None, :],
                     charge=np.asarray([float(charge)], dtype=np.float32),
                     mult=np.asarray([float(multiplicity)], dtype=np.float32),
@@ -1258,7 +1158,7 @@ class AIMNet2Evaluator(_BackendBase):
             forces = self._extract_array(forces, force_2d=True)
 
             if with_hessian and hess is not None:
-                hess = np.asarray(hess, dtype=np.float64)
+                hess = self._extract_array(hess, force_2d=False)
 
             return energy, forces, hess
 
@@ -1268,7 +1168,7 @@ class AIMNet2Evaluator(_BackendBase):
         energy = self._pick_first_available(
             out,
             ("energy", "E", "e", "total_energy", "free_energy"),
-            fallback_lower=True,
+
         )
         if energy is None:
             raise BackendError(
@@ -1279,7 +1179,7 @@ class AIMNet2Evaluator(_BackendBase):
         forces = self._pick_first_available(
             out,
             ("forces", "force", "gradient"),
-            fallback_lower=True,
+
         )
         if forces is None:
             raise BackendError("AIMNet2 output missing forces key. Keys: {}".format(sorted(out.keys())))
@@ -1288,11 +1188,11 @@ class AIMNet2Evaluator(_BackendBase):
         hess = self._pick_first_available(
             out,
             ("hessian", "Hessian", "hess", "hessians"),
-            fallback_lower=True,
+
         )
 
         if hess is not None:
-            hess = np.asarray(hess, dtype=np.float64)
+            hess = self._extract_array(hess, force_2d=False)
 
         if with_hessian:
             if hess is None:
@@ -1311,4 +1211,4 @@ class AIMNet2Evaluator(_BackendBase):
         _e, _f, h = self._call(symbols, coords_ang, charge, multiplicity, with_hessian=True)
         if h is None:
             raise BackendError("AIMNet2 did not return analytical Hessian.")
-        return self._normalize_hessian(np.asarray(h, dtype=np.float64), len(symbols))
+        return _as_square_hessian(h, len(symbols))
