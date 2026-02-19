@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "g16-mlips"
 dynamic = ["version"]
-description = "MLIP plugins for Gaussian16 External (UMA, OrbMol, MACE)"
+description = "MLIP plugins for Gaussian16 External (UMA, OrbMol, MACE, AIMNet2)"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -17,6 +17,7 @@ dependencies = [
 uma = ["torch>=2.8.0", "fairchem-core>=2.13"]
 orb = ["torch>=2.8.0", "orb-models"]
 mace = ["torch>=2.8.0", "mace-torch"]
+aimnet2 = ["torch>=2.8.0", "aimnet"]
 
 [project.urls]
 Homepage = "https://github.com/t-0hmura/g16-mlips"
@@ -26,9 +27,11 @@ Repository = "https://github.com/t-0hmura/g16-mlips"
 g16-mlips-uma = "g16_mlips_plugins.uma_g16:main"
 g16-mlips-orb = "g16_mlips_plugins.orbmol_g16:main"
 g16-mlips-mace = "g16_mlips_plugins.mace_g16:main"
+g16-mlips-aimnet2 = "g16_mlips_plugins.aimnet2_g16:main"
 uma = "g16_mlips_plugins.uma_g16:main"
 orb = "g16_mlips_plugins.orbmol_g16:main"
 mace = "g16_mlips_plugins.mace_g16:main"
+aimnet2 = "g16_mlips_plugins.aimnet2_g16:main"
 
 [tool.setuptools]
 packages = ["g16_mlips_plugins"]

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Common MLIP backend utilities for ORCA/Gaussian external plugins.
 
-This module provides three backend classes:
+This module provides four backend classes:
 - UMAEvaluator
 - OrbMolEvaluator
 - MACEEvaluator
+- AIMNet2Evaluator
 
 All backends expose the same high-level method:
     evaluate(..., need_hessian, hessian_mode, hessian_step)
@@ -93,6 +94,14 @@ MACE_MP_ALIASES_FALLBACK = [
     "mh-1",
 ]
 
+AIMNET2_MODELS_FALLBACK = [
+    "aimnet2",
+    "aimnet2_b973c",
+    "aimnet2_2025",
+    "aimnet2nse",
+    "aimnet2pd",
+]
+
 
 class BackendError(RuntimeError):
     """Raised for backend-specific runtime failures."""
@@ -142,10 +151,20 @@ def _as_square_hessian(hess_like, natoms):
     """Convert Hessian-like object to a (3N, 3N) float64 array in eV/A^2."""
     h = np.asarray(hess_like, dtype=np.float64)
     dof = int(natoms) * 3
+    if h.ndim == 5:
+        # Common AIMNet2 format: (B, N, 3, N, 3)
+        if h.shape[0] > 0:
+            h = h[0]
     if h.ndim == 4:
         return h.reshape(dof, dof)
     if h.ndim == 2 and h.shape == (dof, dof):
         return h
+    if h.ndim == 3:
+        # (N, 3N, 3N?) and (3N, N, 3) fallback normalization to (3N,3N)
+        if h.shape[0] * 3 == dof and h.shape[1] == 3:
+            return h.reshape(dof, -1)
+        if h.shape[0] == dof and h.shape[2] == 3:
+            return h.reshape(dof, -1)
     return h.reshape(dof, dof)
 
 
@@ -352,6 +371,20 @@ def get_available_mace_models():
     out.append("<https://...model>")
 
     # preserve order and uniqueness
+    seen = set()
+    uniq = []
+    for item in out:
+        if item not in seen:
+            seen.add(item)
+            uniq.append(item)
+    return uniq
+
+
+def get_available_aimnet2_models():
+    out = list(AIMNET2_MODELS_FALLBACK)
+    out.append("<local_model_path>")
+    out.append("<https://...model>")
+
     seen = set()
     uniq = []
     for item in out:
@@ -1061,3 +1094,242 @@ class MACEEvaluator(_BackendBase):
         atoms.info["spin"] = int(multiplicity)
         hess = self._calc.get_hessian(atoms=atoms)
         return _as_square_hessian(hess, len(symbols))
+
+
+class AIMNet2Evaluator(_BackendBase):
+    """AIMNet2 backend via aimnet2calc / aimnetcentral."""
+
+    def __init__(self, model, device, calc_kwargs=None):
+        try:
+            import torch
+        except Exception as exc:
+            raise BackendError(
+                "AIMNet2 backend requires torch and an AIMNet2 package. "
+                "Install with: pip install 'g16-mlips[aimnet2]'"
+            ) from exc
+
+        self._torch = torch
+        if str(device).lower() == "auto":
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = str(device)
+        self.model = str(model)
+        self.calc_kwargs = dict(calc_kwargs or {})
+
+        self._calculator = self._load_calculator(self.model)
+        self._torch_dtype = torch.float64
+
+    def _normalize_hessian(self, hess_like, natoms):
+        return _as_square_hessian(hess_like, natoms)
+
+    @staticmethod
+    def _to_scalar(value):
+        if hasattr(value, "detach"):
+            value = value.detach().cpu().numpy()
+        if hasattr(value, "item"):
+            return float(value.item())
+        return float(np.asarray(value).reshape(-1)[0])
+
+    @staticmethod
+    def _extract_array(value, force_2d):
+        arr = np.asarray(value, dtype=np.float64).reshape(-1)
+        if force_2d:
+            if arr.ndim == 1:
+                return arr.reshape(-1, 3)
+            if arr.ndim > 2:
+                return arr.reshape(-1, 3)
+        return np.asarray(value, dtype=np.float64)
+
+    @staticmethod
+    def _pick_first_available(mapping, names, fallback_lower=None):
+        for name in names:
+            if name in mapping:
+                return mapping[name]
+        if fallback_lower is True:
+            for name in mapping:
+                if str(name).lower() in names:
+                    return mapping[name]
+        if fallback_lower:
+            wanted = {str(x).lower() for x in names}
+            for key, value in mapping.items():
+                if str(key).lower() in wanted:
+                    return value
+        return None
+
+    def _load_calculator(self, model_name):
+        calc = None
+        last_exc = None
+
+        candidates = []
+        try:
+            from aimnet2calc import AIMNet2Calculator
+
+            candidates.append((AIMNet2Calculator, "aimnet2calc"))
+        except Exception as exc:
+            last_exc = exc
+            try:
+                from aimnetcentral import AIMNet2Calculator
+
+                candidates.append((AIMNet2Calculator, "aimnetcentral"))
+            except Exception as exc2:
+                last_exc = exc2
+                raise BackendError(
+                    "AIMNet2 backend requires `aimnet2calc` or `aimnetcentral`. "
+                    "Install with: pip install g16-mlips[aimnet2]"
+                ) from last_exc
+
+        if not candidates:
+            raise BackendError(
+                "AIMNet2 backend requires `aimnet2calc` or `aimnetcentral`. "
+                "Install with: pip install g16-mlips[aimnet2]"
+            ) from last_exc
+
+        init_kwargs_base = [
+            {"device": self.device, **self.calc_kwargs},
+            {"device": self.device},
+            dict(self.calc_kwargs),
+            {},
+        ]
+
+        for calc_factory, _source in candidates:
+            for init_kwargs in init_kwargs_base:
+                # Drop invalid keys for this attempt if constructor is strict.
+                try:
+                    calc = calc_factory(model_name, **init_kwargs)
+                except TypeError:
+                    try:
+                        calc = calc_factory(model=str(model_name), **init_kwargs)
+                    except TypeError:
+                        try:
+                            calc = calc_factory(str(model_name))
+                        except TypeError:
+                            if init_kwargs:
+                                filtered = {}
+                                for key in init_kwargs:
+                                    if key == "device":
+                                        filtered[key] = init_kwargs[key]
+                                try:
+                                    calc = calc_factory(model_name, **filtered)
+                                except Exception as exc:
+                                    last_exc = exc
+                                    continue
+                            else:
+                                try:
+                                    calc = calc_factory(str(model_name))
+                                except Exception as exc:
+                                    last_exc = exc
+                                    continue
+                        except Exception as exc:
+                            last_exc = exc
+                            continue
+                    except Exception as exc:
+                        last_exc = exc
+                        continue
+                except Exception as exc:
+                    last_exc = exc
+                    continue
+
+                if calc is not None:
+                    return calc
+
+        raise BackendError("Failed to initialize AIMNet2 model '{}' from {}.".format(model_name, candidates[0][1])) from last_exc
+
+    def _call(self, symbols, coords_ang, charge, multiplicity, with_hessian):
+        from ase import Atoms
+
+        atoms = Atoms(symbols=symbols, positions=np.asarray(coords_ang, dtype=np.float64))
+        numbers = np.asarray(atoms.get_atomic_numbers(), dtype=np.int64)
+
+        data = {
+            "coord": np.asarray(coords_ang, dtype=np.float32)[None, :, :],
+            "numbers": numbers[None, :],
+            "charge": np.asarray([float(charge)], dtype=np.float32),
+            "mult": np.asarray([float(multiplicity)], dtype=np.float32),
+        }
+
+        try:
+            out = self._calculator(
+                data,
+                forces=True,
+                hessian=bool(with_hessian),
+            )
+        except Exception:
+            out = self._calculator(
+                dict(
+                    coords=np.asarray(coords_ang, dtype=np.float32)[None, :, :],
+                    numbers=numbers[None, :],
+                    charge=np.asarray([float(charge)], dtype=np.float32),
+                    mult=np.asarray([float(multiplicity)], dtype=np.float32),
+                ),
+                forces=True,
+                hessian=bool(with_hessian),
+            )
+
+        if isinstance(out, tuple):
+            out = list(out)
+
+        if isinstance(out, (list, tuple)):
+            if len(out) < 2:
+                raise BackendError(
+                    "Unexpected AIMNet2 output tuple length {}: {}".format(len(out), type(out))
+                )
+            energy = out[0]
+            forces = out[1]
+            hess = out[2] if with_hessian and len(out) > 2 else None
+            energy = self._to_scalar(energy)
+            forces = self._extract_array(forces, force_2d=True)
+
+            if with_hessian and hess is not None:
+                hess = np.asarray(hess, dtype=np.float64)
+
+            return energy, forces, hess
+
+        if not isinstance(out, dict):
+            raise BackendError("Unexpected AIMNet2 output type: {}".format(type(out)))
+
+        energy = self._pick_first_available(
+            out,
+            ("energy", "E", "e", "total_energy", "free_energy"),
+            fallback_lower=True,
+        )
+        if energy is None:
+            raise BackendError(
+                "AIMNet2 output missing energy key. Keys: {}".format(sorted(out.keys()))
+            )
+        energy = self._to_scalar(energy)
+
+        forces = self._pick_first_available(
+            out,
+            ("forces", "force", "gradient"),
+            fallback_lower=True,
+        )
+        if forces is None:
+            raise BackendError("AIMNet2 output missing forces key. Keys: {}".format(sorted(out.keys())))
+        forces = self._extract_array(forces, force_2d=True)
+
+        hess = self._pick_first_available(
+            out,
+            ("hessian", "Hessian", "hess", "hessians"),
+            fallback_lower=True,
+        )
+
+        if hess is not None:
+            hess = np.asarray(hess, dtype=np.float64)
+
+        if with_hessian:
+            if hess is None:
+                raise BackendError(
+                    "AIMNet2 output missing hessian key for analytical request. Keys: {}".format(
+                        sorted(out.keys())
+                    )
+                )
+        return energy, forces, hess
+
+    def energy_forces(self, symbols, coords_ang, charge, multiplicity):
+        energy, forces, _ = self._call(symbols, coords_ang, charge, multiplicity, with_hessian=False)
+        return energy, np.asarray(forces, dtype=np.float64)
+
+    def analytical_hessian(self, symbols, coords_ang, charge, multiplicity):
+        _e, _f, h = self._call(symbols, coords_ang, charge, multiplicity, with_hessian=True)
+        if h is None:
+            raise BackendError("AIMNet2 did not return analytical Hessian.")
+        return self._normalize_hessian(np.asarray(h, dtype=np.float64), len(symbols))

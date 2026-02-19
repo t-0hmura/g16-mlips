@@ -2,10 +2,11 @@
 
 MLIP (Machine Learning Interatomic Potential) plugins for Gaussian 16 `External` interface.
 
-Three model families are supported:
+Four model families are supported:
 - **UMA** ([fairchem](https://github.com/facebookresearch/fairchem)) — default model: `uma-s-1p1`
 - **ORB** ([orb-models](https://github.com/orbital-materials/orb-models)) — default model: `orb_v3_conservative_omol`
 - **MACE** ([mace](https://github.com/ACEsuit/mace)) — default model: `MACE-OMOL-0`
+- **AIMNet2** ([aimnetcentral](https://github.com/isayevlab/aimnetcentral)) — default model: `aimnet2`
 
 All backends provide energy, gradient, and **analytical Hessian** to **Gaussian 16**.  
 > The model server starts automatically and stays resident, so repeated calls during optimization are fast.  
@@ -17,17 +18,17 @@ All backends provide energy, gradient, and **analytical Hessian** to **Gaussian 
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 ```
 
-2. Install the package with UMA profile. If you need ORB/MACE, use `g16-mlips[orb]`/`g16-mlips[mace]`.
+2. Install the package with UMA profile. If you need ORB/MACE/AIMNet2, use `g16-mlips[orb]`/`g16-mlips[mace]`/`g16-mlips[aimnet2]`.
 ```bash
 pip install "g16-mlips[uma]"
 ```
 
-3. Log in to Hugging Face for UMA model access. (Not required for ORB/MACE)
+3. Log in to Hugging Face for UMA model access. (Not required for ORB/MACE/AIMNet2)
 ```bash
 huggingface-cli login
 ```
 
-4. Use in a Gaussian input file. `nomicro` is required. If you use ORB/MACE, use `external="orb"`/`external="mace"`.
+4. Use in a Gaussian input file. `nomicro` is required. If you use ORB/MACE/AIMNet2, use `external="orb"`/`external="mace"`/`external="aimnet2"`.
 For detailed Gaussian `External` usage, see https://gaussian.com/external/
 ```text
 %nprocshared=8
@@ -47,6 +48,7 @@ Other backends:
 ```text
 #p external="orb" opt(nomicro)
 #p external="mace" opt(nomicro)
+#p external="aimnet2" opt(nomicro)
 ```
 
 > **Important:** For Gaussian `External` geometry optimization, always include `nomicro` in `opt(...)`.
@@ -93,7 +95,7 @@ Note that `freq` is the only job type that requests analytical Hessian (`igrd=2`
 
 > **Note:** Run `uma --list-models` to see available models. If the `uma` alias conflicts in your environment, use `g16-mlips-uma` instead.
 
-Additional examples: `examples/cla_freq.gjf` + `examples/cla_external.gjf`, `examples/sn2_freq.gjf` + `examples/sn2_external.gjf`, `examples/water_freq.gjf` + `examples/water_external.gjf`
+Additional examples: `examples/cla_freq_uma.gjf` + `examples/cla_uma.gjf`, `examples/sn2_freq_orb.gjf` + `examples/sn2_orb.gjf`, `examples/water_freq_mace.gjf` + `examples/water_mace.gjf`, `examples/cla_freq_aimnet2.gjf` + `examples/cla_aimnet2.gjf`
 
 ## Installing Model Families
 
@@ -102,10 +104,13 @@ pip install "g16-mlips[uma]"         # UMA (default)
 pip install "g16-mlips[orb]"         # ORB
 pip install "g16-mlips[mace]"        # MACE
 pip install "g16-mlips[orb,mace]"    # ORB + MACE
+pip install "g16-mlips[aimnet2]"     # AIMNet2
+pip install "g16-mlips[orb,mace,aimnet2]"  # ORB + MACE + AIMNet2
 pip install g16-mlips                # core only
 ```
 
 > **Note:** UMA and MACE conflict at dependency level (`e3nn`). Use separate environments.
+> AIMNet2 models are loaded from `aimnet2calc` / `aimnetcentral`.
 
 Local install:
 ```bash
@@ -116,25 +121,27 @@ pip install ".[uma]"
 
 Model download notes:
 - **UMA**: Hosted on Hugging Face Hub. Run `huggingface-cli login` once.
-- **ORB / MACE**: Downloaded automatically on first use.
+- **ORB / MACE / AIMNet2**: Downloaded automatically on first use.
 
 ## Upstream Model Sources
 
 - UMA / FAIR-Chem: https://github.com/facebookresearch/fairchem
 - ORB / orb-models: https://github.com/orbital-materials/orb-models
 - MACE: https://github.com/ACEsuit/mace
+- AIMNet2: https://github.com/isayevlab/aimnetcentral
 
 ## Advanced Options
 
 See `OPTIONS.md` for backend-specific tuning parameters.
 
 Command aliases:
-- Short: `uma`, `orb`, `mace`
-- Prefixed: `g16-mlips-uma`, `g16-mlips-orb`, `g16-mlips-mace`
+- Short: `uma`, `orb`, `mace`, `aimnet2`
+- Prefixed: `g16-mlips-uma`, `g16-mlips-orb`, `g16-mlips-mace`, `g16-mlips-aimnet2`
 
 ## Troubleshooting
 
 - **`external="uma"` runs the wrong plugin** — Use `external="g16-mlips-uma"` to avoid alias conflicts.
+- **`external="aimnet2"` runs the wrong plugin** — Use `external="g16-mlips-aimnet2"` to avoid alias conflicts.
 - **`uma` command not found** — Activate the conda environment where the package is installed.
 - **UMA model download fails (401/403)** — Run `huggingface-cli login`. Some models require access approval on Hugging Face.
 - **Works interactively but fails in PBS jobs** — Use absolute path from `which uma` in the Gaussian input.
