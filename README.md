@@ -1,6 +1,6 @@
 # g16-mlips
 
-MLIP (Machine Learning Interatomic Potential) plugins for Gaussian16 `External` interface.
+MLIP (Machine Learning Interatomic Potential) plugins for Gaussian 16 `External` interface.
 
 Three model families are supported:
 - **UMA** ([fairchem](https://github.com/facebookresearch/fairchem)) — default model: `uma-s-1p1`
