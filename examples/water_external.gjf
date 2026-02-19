@@ -1,8 +1,7 @@
 %nprocshared=8
 %mem=32GB
-%oldchk=wat_freq.chk
 %chk=wat_ext.chk
-#p external="mace" opt(readfc,noeigentest,ts,maxcycles=10000)
+#p external="mace" opt=(maxcycles=500,nomicro) freq(noraman)
 
 Water opt MACE
 

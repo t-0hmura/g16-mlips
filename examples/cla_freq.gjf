@@ -1,7 +1,7 @@
 %nprocshared=8
 %mem=32GB
 %chk=cla_freq.chk
-#p external="uma" freq
+#p external="uma" freq(noraman)
 
 CLA freq UMA
 

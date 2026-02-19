@@ -31,7 +31,7 @@ huggingface-cli login
 %nprocshared=8
 %mem=32GB
 %chk=water_ext.chk
-#p external="uma" opt
+#p external="uma" opt(nomicro)
 
 Water external UMA example
 
@@ -43,9 +43,11 @@ H -0.758602  0.000000  0.504284
 
 Other backends:
 ```text
-#p external="orb" opt
-#p external="mace" opt
+#p external="orb" opt(nomicro)
+#p external="mace" opt(nomicro)
 ```
+
+> **Important:** For Gaussian `External` geometry optimization, always include `nomicro` in `opt(...)`.
 
 ### TS Search (Recommended: freq + readfc)
 
@@ -72,7 +74,7 @@ Gaussian sends igrd=2, and the plugin returns the analytical Hessian. The result
 %nprocshared=8
 %mem=32GB
 %chk=cla_ext.chk
-#p external="uma" opt(readfc,noeigentest,ts)
+#p external="uma" opt(readfc,noeigentest,ts,nomicro)
 
 CLA TS opt UMA
 
@@ -85,7 +87,7 @@ CLA TS opt UMA
 >
 > ```text
 > %chk=cla_ext.chk
-> #p external="uma" opt(restart)
+> #p external="uma" opt(restart,nomicro)
 >
 > ```
 > `opt(restart)` reads the geometry, force constants, optimization history, and TS/noeigentest settings from the checkpoint file — do not re-specify `ts` or `noeigentest` in the restart input. No title or molecule specification is needed. Run this in a loop until Gaussian exits with code 0 (converged).
@@ -100,12 +102,12 @@ Same two-step workflow with `opt(readfc)` instead of `opt(readfc,noeigentest,ts)
 then:
 ```text
 %chk=water_ext.chk
-#p external="mace" opt(readfc)
+#p external="mace" opt(readfc,nomicro)
 ```
 Restart if not converged:
 ```text
 %chk=water_ext.chk
-#p external="mace" opt(restart)
+#p external="mace" opt(restart,nomicro)
 ```
 
 ### Frequency Calculation

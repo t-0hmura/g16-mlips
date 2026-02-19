@@ -2,12 +2,12 @@
 %mem=32GB
 %oldchk=sn2_freq.chk
 %chk=sn2_ext.chk
-#p external="orb" opt(readfc,noeigentest,ts,maxcycles=10000)
+#p external="orb" opt=(readfc,ts,noeigentest,maxcycles=500,nomicro) freq(noraman)
 
 SN2 TS opt ORB
 
 -1 1
-C     0.3081730000    -0.0000075500    -0.0000178300
+C     0.3081730000   -0.0000075500   -0.0000178300
 H     0.3217863000   -1.0710616200    0.0488656900
 H     0.3217966700    0.5778563100    0.9031013500
 H     0.3217842400    0.4931830600   -0.9520205500

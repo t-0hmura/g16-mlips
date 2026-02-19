@@ -1,8 +1,7 @@
 %nprocshared=8
 %mem=32GB
-%oldchk=cla_freq.chk
 %chk=cla_ext.chk
-#p external="uma" opt(readfc,noeigentest,ts,maxcycles=10000)
+#p external="uma" opt=(calcfc,ts,noeigentest,maxcycles=500,nomicro) freq(noraman)
 
 CLA TS opt UMA
 
