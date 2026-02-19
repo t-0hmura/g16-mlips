@@ -3,9 +3,9 @@
 MLIP (Machine Learning Interatomic Potential) plugins for Gaussian16 `External` interface.
 
 Three model families are supported:
-- **UMA** (FAIR-Chem) — default model: `uma-s-1p1`
-- **OrbMol** (orb-models) — default model: `orb_v3_conservative_omol`
-- **MACE** — default model: `MACE-OMOL-0`
+- **UMA** ([fairchem](https://github.com/facebookresearch/fairchem)) — default model: `uma-s-1p1`
+- **ORB** ([orb-models](https://github.com/orbital-materials/orb-models)) — default model: `orb_v3_conservative_omol`
+- **MACE** ([mace](https://github.com/ACEsuit/mace)) — default model: `MACE-OMOL-0`
 
 All backends provide energy, gradient, and analytical Hessian. The model server starts automatically and stays resident, so repeated calls during optimization are fast.
 
