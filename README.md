@@ -80,7 +80,7 @@ To use MLIP analytical Hessian in `opt`/`irc`, read the Hessian from an existing
 
 #p external="uma" opt(readfc,nomicro)
 
-CLA TS opt UMA
+CLA opt UMA
 
 0 1
 ...
@@ -109,9 +109,9 @@ Additional examples: `examples/cla_freq.gjf` + `examples/cla_external.gjf`, `exa
 
 ```bash
 pip install "g16-mlips[uma]"         # UMA (default)
-pip install "g16-mlips[orb]"         # OrbMol
+pip install "g16-mlips[orb]"         # ORB
 pip install "g16-mlips[mace]"        # MACE
-pip install "g16-mlips[orb,mace]"    # OrbMol + MACE
+pip install "g16-mlips[orb,mace]"    # ORB + MACE
 pip install g16-mlips                # core only
 ```
 
@@ -126,12 +126,12 @@ pip install ".[uma]"
 
 Model download notes:
 - **UMA**: Hosted on Hugging Face Hub. Run `huggingface-cli login` once.
-- **OrbMol / MACE**: Downloaded automatically on first use.
+- **ORB / MACE**: Downloaded automatically on first use.
 
 ## Upstream Model Sources
 
 - UMA / FAIR-Chem: https://github.com/facebookresearch/fairchem
-- OrbMol / orb-models: https://github.com/orbital-materials/orb-models
+- ORB / orb-models: https://github.com/orbital-materials/orb-models
 - MACE: https://github.com/ACEsuit/mace
 
 ## Advanced Options

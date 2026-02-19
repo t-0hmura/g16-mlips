@@ -1,4 +1,4 @@
-# OPTIONS.md (g16-mlips)
+# g16-mlips Options
 
 For most users, defaults are sufficient.
 
@@ -35,9 +35,9 @@ Auto-started servers are scoped per parent Gaussian process and stop automatical
 - `--r-edges` — Enable distance edge attributes.
 - `--otf-graph` / `--no-otf-graph` — Toggle OTF graph collation (default: on).
 
-## OrbMol Options (`orb` / `g16-mlips-orb`)
+## ORB Options (`orb` / `g16-mlips-orb`)
 
-Only conservative Orb models are supported.
+Only conservative ORB models are supported.
 
 - `--precision <str>` (default: `float32-high`)
 - `--compile-model`
