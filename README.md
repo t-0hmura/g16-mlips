@@ -1,5 +1,7 @@
 # g16-mlips
 
+[![DOI](https://zenodo.org/badge/1160316483.svg)](https://zenodo.org/badge/latestdoi/1160316483)
+
 MLIP (Machine Learning Interatomic Potential) plugins for Gaussian 16 `External` interface.
 
 Four model families are currently supported:
@@ -164,7 +166,7 @@ If you use this package, please cite:
   version      = {1.0.0},
   url          = {https://github.com/t-0hmura/g16-mlips},
   license      = {MIT},
-  doi          = {10.5281/zenodo.18691993}
+  doi          = {10.5281/zenodo.18695243}
 }
 ```
 
