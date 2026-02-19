@@ -76,12 +76,13 @@ def _find_orca_extinp_arg(argv):
 
 def _version_text(plugin_name):
     version = "dev"
+    dist_name = "g16-mlips"
     if _importlib_metadata is not None:
         try:
-            version = _importlib_metadata.version("mlips4g16")
+            version = _importlib_metadata.version(dist_name)
         except Exception:
             pass
-    return "{} (mlips4g16 {})".format(plugin_name, version)
+    return "{} ({} {})".format(plugin_name, dist_name, version)
 
 
 def _split_gaussian_tail(argv):
@@ -253,7 +254,7 @@ def run_g16_plugin(
                 "Detected ORCA-style input '{}'. "
                 "This command appears to be a Gaussian plugin, but it was called in ORCA style. "
                 "If short aliases are conflicting, set ORCA ProgExt to '{}'.".format(
-                    extinp_like, "mlips4orca-" + backend
+                    extinp_like, "orca-mlips-" + backend
                 )
             )
         parser.error(

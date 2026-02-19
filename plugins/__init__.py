@@ -1,1 +1,1 @@
-"""mlips4g16 plugin package."""
+"""g16-mlips plugin package."""

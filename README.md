@@ -1,4 +1,4 @@
-# mlips4g16
+# g16-mlips
 
 MLIP (Machine Learning Interatomic Potential) plugins for Gaussian16 `External` interface.
 
@@ -18,7 +18,7 @@ pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 
 2. Install the package with UMA profile.
 ```bash
-pip install "mlips4g16[uma]"
+pip install "g16-mlips[uma]"
 ```
 
 3. Log in to Hugging Face for UMA model access.
@@ -118,26 +118,26 @@ Restart if not converged:
 
 With `freq`, Gaussian requests the analytical Hessian directly (igrd=2) from the plugin.
 
-> **Note:** Run `uma --list-models` to see available models. If the `uma` alias conflicts in your environment, use `mlips4g16-uma` instead.
+> **Note:** Run `uma --list-models` to see available models. If the `uma` alias conflicts in your environment, use `g16-mlips-uma` instead.
 
 Additional examples: `examples/cla_freq.gjf` + `examples/cla_external.gjf`, `examples/sn2_freq.gjf` + `examples/sn2_external.gjf`, `examples/water_freq.gjf` + `examples/water_external.gjf`
 
 ## Installing Model Families
 
 ```bash
-pip install "mlips4g16[uma]"         # UMA (default)
-pip install "mlips4g16[orb]"         # OrbMol
-pip install "mlips4g16[mace]"        # MACE
-pip install "mlips4g16[orb,mace]"    # OrbMol + MACE
-pip install mlips4g16                # core only
+pip install "g16-mlips[uma]"         # UMA (default)
+pip install "g16-mlips[orb]"         # OrbMol
+pip install "g16-mlips[mace]"        # MACE
+pip install "g16-mlips[orb,mace]"    # OrbMol + MACE
+pip install g16-mlips                # core only
 ```
 
 > **Note:** UMA and MACE conflict at dependency level (`e3nn`). Use separate environments.
 
 Local install:
 ```bash
-git clone https://github.com/t-0hmura/mlips4g16.git
-cd mlips4g16
+git clone https://github.com/t-0hmura/g16-mlips.git
+cd g16-mlips
 pip install ".[uma]"
 ```
 
@@ -157,11 +157,11 @@ See `OPTIONS.md` for backend-specific tuning parameters.
 
 Command aliases:
 - Short: `uma`, `orb`, `mace`
-- Prefixed: `mlips4g16-uma`, `mlips4g16-orb`, `mlips4g16-mace`
+- Prefixed: `g16-mlips-uma`, `g16-mlips-orb`, `g16-mlips-mace`
 
 ## Troubleshooting
 
-- **`external="uma"` runs the wrong plugin** — Use `external="mlips4g16-uma"` to avoid alias conflicts.
+- **`external="uma"` runs the wrong plugin** — Use `external="g16-mlips-uma"` to avoid alias conflicts.
 - **`uma` command not found** — Activate the conda environment where the package is installed.
 - **UMA model download fails (401/403)** — Run `huggingface-cli login`. Some models require access approval on Hugging Face.
 - **Works interactively but fails in PBS jobs** — Use absolute path from `which uma` in the Gaussian input.

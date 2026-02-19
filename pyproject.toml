@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68", "wheel", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "g16-mlips"
-version = "0.1.0"
+dynamic = ["version"]
 description = "MLIP plugins for Gaussian16 External (UMA, OrbMol, MACE)"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -23,19 +23,21 @@ Homepage = "https://github.com/t-0hmura/g16-mlips"
 Repository = "https://github.com/t-0hmura/g16-mlips"
 
 [project.scripts]
-g16-mlips-uma = "mlips4g16_plugins.uma_g16:main"
-g16-mlips-orb = "mlips4g16_plugins.orbmol_g16:main"
-g16-mlips-mace = "mlips4g16_plugins.mace_g16:main"
-mlips4g16-uma = "mlips4g16_plugins.uma_g16:main"
-mlips4g16-orb = "mlips4g16_plugins.orbmol_g16:main"
-mlips4g16-mace = "mlips4g16_plugins.mace_g16:main"
-uma = "mlips4g16_plugins.uma_g16:main"
-orb = "mlips4g16_plugins.orbmol_g16:main"
-mace = "mlips4g16_plugins.mace_g16:main"
+g16-mlips-uma = "g16_mlips_plugins.uma_g16:main"
+g16-mlips-orb = "g16_mlips_plugins.orbmol_g16:main"
+g16-mlips-mace = "g16_mlips_plugins.mace_g16:main"
+uma = "g16_mlips_plugins.uma_g16:main"
+orb = "g16_mlips_plugins.orbmol_g16:main"
+mace = "g16_mlips_plugins.mace_g16:main"
 
 [tool.setuptools]
-packages = ["mlips4g16_plugins"]
+packages = ["g16_mlips_plugins"]
 include-package-data = false
 
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
+
 [tool.setuptools.package-dir]
-mlips4g16_plugins = "plugins"
+g16_mlips_plugins = "plugins"
