@@ -53,7 +53,9 @@ Other backends:
 
 > **Important:** For Gaussian `External` geometry optimization, always include `nomicro` in `opt(...)`.
 
-### Analytical Hessian
+### Analytical Hessian (optional)
+
+Optimization and IRC work without an initial Hessian — Gaussian will build one internally. Providing an MLIP analytical Hessian via `freq` + `readfc` improves convergence, especially for TS searches.
 
 Gaussian `freq` (with `external=...`) is the only path that requests the plugin's analytical Hessian directly.
 
