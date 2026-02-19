@@ -17,7 +17,7 @@ All backends provide energy, gradient, and **analytical Hessian** to **Gaussian 
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 ```
 
-2. Install the package with UMA profile.
+2. Install the package with UMA profile. If you need ORB/MACE, use `g16-mlips[orb]`/`g16-mlips[mace]`.
 ```bash
 pip install "g16-mlips[uma]"
 ```
@@ -27,7 +27,7 @@ pip install "g16-mlips[uma]"
 huggingface-cli login
 ```
 
-4. Use in a Gaussian input file. `nomicro` is required.
+4. Use in a Gaussian input file. `nomicro` is required. If you use ORB/MACE, use `external="orb"`/`external="mace"`.
 ```text
 %nprocshared=8
 %mem=32GB
