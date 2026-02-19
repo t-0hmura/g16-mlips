@@ -19,7 +19,7 @@ pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 
 2. Install the package with UMA profile. If you need ORB/MACE, use `g16-mlips[orb]`/`g16-mlips[mace]`.
 ```bash
-pip install "g16-mlips[uma]"
+pip install "g16-mlips[uma] @ git+https://github.com/t-0hmura/g16-mlips.git"
 ```
 
 3. Log in to Hugging Face for UMA model access. (No need for ORB/MACE)
@@ -97,11 +97,11 @@ Additional examples: `examples/cla_freq.gjf` + `examples/cla_external.gjf`, `exa
 ## Installing Model Families
 
 ```bash
-pip install "g16-mlips[uma]"         # UMA (default)
-pip install "g16-mlips[orb]"         # ORB
-pip install "g16-mlips[mace]"        # MACE
-pip install "g16-mlips[orb,mace]"    # ORB + MACE
-pip install g16-mlips                # core only
+pip install "g16-mlips[uma] @ git+https://github.com/t-0hmura/g16-mlips.git"         # UMA (default)
+pip install "g16-mlips[orb] @ git+https://github.com/t-0hmura/g16-mlips.git"         # ORB
+pip install "g16-mlips[mace] @ git+https://github.com/t-0hmura/g16-mlips.git"        # MACE
+pip install "g16-mlips[orb,mace] @ git+https://github.com/t-0hmura/g16-mlips.git"    # ORB + MACE
+pip install g16-mlips @ git+https://github.com/t-0hmura/g16-mlips.git                # core only
 ```
 
 > **Note:** UMA and MACE conflict at dependency level (`e3nn`). Use separate environments.
