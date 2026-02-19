@@ -90,18 +90,6 @@ CLA opt UMA
 `readfc` reads the force constants from `%oldchk`. This applies to `opt` and `irc` runs.
 Note that `freq` is the only job type that requests analytical Hessian (`igrd=2`) from the plugin. `opt` and `irc` themselves never request it directly.
 
-> **Important: Gaussian External 2-step limit.** Gaussian's `External` interface limits optimization to 2 steps per run. If the geometry has not converged, Gaussian exits with a non-zero exit code and the optimization must be continued with `opt(restart)`:
->
-> ```text
-> %nprocshared=8
-> %mem=32GB
-> %chk=cla_ext.chk
-> %oldchk=cla_ext.chk
->
-> #p external="uma" opt(restart,nomicro)
-> ```
-> `opt(restart)` reads the optimization history from the checkpoint; do not re-specify `ts` or `noeigentest` in the restart input.
-
 > **Note:** Run `uma --list-models` to see available models. If the `uma` alias conflicts in your environment, use `g16-mlips-uma` instead.
 
 Additional examples: `examples/cla_freq.gjf` + `examples/cla_external.gjf`, `examples/sn2_freq.gjf` + `examples/sn2_external.gjf`, `examples/water_freq.gjf` + `examples/water_external.gjf`
