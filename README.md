@@ -19,7 +19,7 @@ Requires **Python 3.9** or later.
 
 ## Quick Start (Default = UMA)
 
-1. Install PyTorch for your environment (CUDA/CPU).
+1. Install PyTorch suitable for your environment (CUDA/CPU).
 ```bash
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 ```
@@ -34,7 +34,7 @@ pip install "g16-mlips[uma]"
 huggingface-cli login
 ```
 
-4. Use in a Gaussian input file. `nomicro` is required. If you use ORB/MACE/AIMNet2, use `external="orb"`/`external="mace"`/`external="aimnet2"`.
+4. Use in a Gaussian input file (**`nomicro` is required**.). If you use ORB/MACE/AIMNet2, use `external="orb"`/`external="mace"`/`external="aimnet2"`.
 For detailed Gaussian `External` usage, see https://gaussian.com/external/
 ```text
 %nprocshared=8
