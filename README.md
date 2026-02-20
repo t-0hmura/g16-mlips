@@ -191,7 +191,7 @@ If you use this package, please cite:
   version      = {1.1.0},
   url          = {https://github.com/t-0hmura/g16-mlips},
   license      = {MIT},
-  doi          = {10.5281/zenodo.18695243}
+  doi          = {10.5281/zenodo.18717988}
 }
 ```
 
