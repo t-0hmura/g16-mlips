@@ -24,7 +24,7 @@ Requires **Python 3.9** or later.
 pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
 ```
 
-2. Install the package with UMA profile. If you need ORB/MACE/AIMNet2, use `g16-mlips[orb]`/`g16-mlips[mace]`/`g16-mlips[aimnet2]`.
+2. Install the package with the UMA profile. If you need ORB/MACE/AIMNet2, use `g16-mlips[orb]`/`g16-mlips[mace]`/`g16-mlips[aimnet2]`.
 ```bash
 pip install "g16-mlips[uma]"
 ```
@@ -81,9 +81,9 @@ CLA freq UMA
 ```
 Gaussian sends `igrd=2` and stores the result in the `.chk` file.
 
-### Using analytical Hessian in optimization jobs
+### Using the analytical Hessian in optimization jobs
 
-To use MLIP analytical Hessian in `opt`/`irc`, read the Hessian from an existing checkpoint using Gaussian `%oldchk` + `readfc`.
+To use the MLIP analytical Hessian in `opt`/`irc`, read the Hessian from an existing checkpoint using Gaussian `%oldchk` + `readfc`.
 
 ```text
 %nprocshared=8
@@ -100,9 +100,11 @@ CLA opt UMA
 ```
 
 `readfc` reads the force constants from `%oldchk`. This applies to `opt` and `irc` runs.
-Note that `freq` is the only job type that requests analytical Hessian (`igrd=2`) from the plugin. `opt` and `irc` themselves never request it directly.
+Note that `freq` is the only job type that requests the analytical Hessian (`igrd=2`) from the plugin. `opt` and `irc` themselves never request it directly.
 
 ## Implicit Solvent Correction (xTB)
+
+You can use an implicit-solvent correction via xTB. To use it, install xTB and pass the `--solvent` option.
 
 Install xTB in your conda environment (easy path):
 
@@ -116,6 +118,14 @@ Use `--solvent <name>` in `external="..."` (examples: `water`, `thf`):
 #p external="uma --solvent water" opt(nomicro)
 #p external="uma --solvent thf" freq
 ```
+
+This implementation follows the solvent-correction approach described in:
+Zhang, C., Leforestier, B., Besnard, C., & Mazet, C. (2025). Pd-catalyzed regiodivergent arylation of cyclic allylboronates. Chemical Science, 16, 22656-22665. https://doi.org/10.1039/d5sc07577g
+
+When you describe this correction in a paper, you can use:
+`Implicit solvent effects were accounted for by integrating the ALPB [or CPCM-X] solvation model from the xtb package as an additional correction to UMA-generated energies, gradients, and Hessians.`
+
+**Note:** `--solvent-model cpcmx` (CPCM-X) requires xTB built from source with `-DWITH_CPCMX=ON`. The conda-forge `xtb` package does not include CPCM-X support. See `SOLVENT_EFFECTS.md` for build instructions.
 
 For details, see `SOLVENT_EFFECTS.md`.
 
