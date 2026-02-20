@@ -8,10 +8,17 @@ For most users, defaults are sufficient.
 
 - `--model <name_or_alias_or_path>`
 - `--device auto|cpu|cuda`
+- `--solvent <name|none>` — xTB ALPB solvent correction (`none` disables correction).
+- `--xtb-cmd <path_or_cmd>` — xTB executable for solvent correction (default: `xtb`).
+- `--xtb-acc <float>` — xTB `--acc` value for solvent correction (default: `0.2`).
+- `--xtb-workdir <tmp|path>` — xTB per-call scratch base directory (default: `tmp`).
+- `--xtb-keep-files` — Keep xTB temporary files for debugging.
 - `--list-models`
 - `--version`
 
 Keywords such as `readfc`, `%oldchk`, `nomicro`, `freq`, `calcfc`, and `ts` are Gaussian input directives, not CLI options for this plugin. Use `readfc` with `opt`/`irc` to reuse a Hessian from an existing `.chk` file (see `README.md` for details).
+
+When solvent correction is enabled (`--solvent != none`), xTB must be available in the current environment/path.
 
 ## UMA Options (`uma` / `g16-mlips-uma`)
 

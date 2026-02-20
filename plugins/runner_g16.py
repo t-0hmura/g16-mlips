@@ -8,6 +8,8 @@ import os
 import sys
 import traceback
 
+import numpy as np
+
 try:
     from importlib import metadata as _importlib_metadata
 except Exception:
@@ -35,6 +37,12 @@ if __package__ in (None, ""):
         send_shutdown,
         server_is_alive,
     )
+    from xtb_alpb_correction import (
+        XTBError,
+        delta_alpb_minus_vac,
+        resolve_xtb_ncores,
+        solvent_correction_enabled,
+    )
 else:
     from .g16_extio import read_g16_external_input, write_g16_external_output, write_msg
     from .mlip_backends import (
@@ -50,6 +58,12 @@ else:
         ensure_server,
         send_shutdown,
         server_is_alive,
+    )
+    from .xtb_alpb_correction import (
+        XTBError,
+        delta_alpb_minus_vac,
+        resolve_xtb_ncores,
+        solvent_correction_enabled,
     )
 
 
@@ -213,6 +227,32 @@ def run_g16_plugin(
     )
     parser.add_argument("--model", default=default_model, help="Model name/alias/path")
     parser.add_argument("--device", default="auto", help="cpu|cuda|auto")
+    parser.add_argument(
+        "--solvent",
+        default="none",
+        help="xTB ALPB solvent name (set 'none' to disable solvent correction).",
+    )
+    parser.add_argument(
+        "--xtb-cmd",
+        default="xtb",
+        help="xTB executable path/command for solvent correction (default: xtb).",
+    )
+    parser.add_argument(
+        "--xtb-acc",
+        type=float,
+        default=0.2,
+        help="xTB --acc value used for ALPB correction (default: 0.2).",
+    )
+    parser.add_argument(
+        "--xtb-workdir",
+        default="tmp",
+        help="xTB scratch base dir: 'tmp' or a directory path (default: tmp).",
+    )
+    parser.add_argument(
+        "--xtb-keep-files",
+        action="store_true",
+        help="Keep xTB temporary files for debugging.",
+    )
     parser.add_argument("--list-models", action="store_true", help="Print model aliases and exit")
     parser.add_argument(
         "--version",
@@ -318,6 +358,44 @@ def run_g16_plugin(
         energy_ev, forces_ev_ang, hess_ev_ang2 = _evaluate_direct(
             make_evaluator, args, ext
         )
+
+    # --- Optional xTB(ALPB)-vacuum solvent correction ---
+    if solvent_correction_enabled(args.solvent):
+        try:
+            de_ev, df_ev_ang, dh_ev_ang2 = delta_alpb_minus_vac(
+                symbols=ext["symbols"],
+                coords_ang=ext["coords_ang"],
+                charge=ext["charge"],
+                multiplicity=ext["multiplicity"],
+                solvent=args.solvent,
+                need_forces=need_grad,
+                need_hessian=need_hess,
+                xtb_cmd=args.xtb_cmd,
+                xtb_acc=args.xtb_acc,
+                xtb_workdir=args.xtb_workdir,
+                xtb_keep_files=args.xtb_keep_files,
+                ncores=resolve_xtb_ncores(),
+            )
+        except XTBError as exc:
+            raise RunnerError("xTB solvent correction failed: {}".format(exc))
+
+        energy_ev = float(energy_ev) + float(de_ev)
+
+        if need_grad:
+            if df_ev_ang is None:
+                raise RunnerError("xTB solvent correction returned no force delta.")
+            if forces_ev_ang is not None:
+                forces_ev_ang = np.asarray(forces_ev_ang, dtype=np.float64) + np.asarray(
+                    df_ev_ang, dtype=np.float64
+                )
+
+        if need_hess:
+            if dh_ev_ang2 is None:
+                raise RunnerError("xTB solvent correction returned no Hessian delta.")
+            if hess_ev_ang2 is not None:
+                hess_ev_ang2 = np.asarray(hess_ev_ang2, dtype=np.float64) + np.asarray(
+                    dh_ev_ang2, dtype=np.float64
+                )
 
     grad_ha_bohr = None
     if need_grad:

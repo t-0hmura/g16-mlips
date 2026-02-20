@@ -10,7 +10,9 @@ Four model families are currently supported:
 - **MACE** ([mace](https://github.com/ACEsuit/mace)) — default model: `MACE-OMOL-0`
 - **AIMNet2** ([aimnetcentral](https://github.com/isayevlab/aimnetcentral)) — default model: `aimnet2`
 
-All backends provide energy, gradient, and **analytical Hessian** for **Gaussian 16**.  
+All backends provide energy, gradient, and **analytical Hessian** for **Gaussian 16**.
+An optional implicit-solvent correction (`xTB/ALPB`) is also available via
+`--solvent`, using an ALPB-vacuum delta term.
 
 > The model server starts automatically and stays resident, so repeated calls during optimization are fast.  
 
@@ -101,9 +103,29 @@ CLA opt UMA
 `readfc` reads the force constants from `%oldchk`. This applies to `opt` and `irc` runs.
 Note that `freq` is the only job type that requests analytical Hessian (`igrd=2`) from the plugin. `opt` and `irc` themselves never request it directly.
 
+## Implicit Solvent Correction (xTB/ALPB)
+
+Use `--solvent <name>` in `external="..."`:
+
+```text
+#p external="uma --solvent water" opt(nomicro)
+#p external="uma --solvent water" freq
+```
+
+`--solvent none` disables the correction and is fully backward-compatible.
+
+Details:
+- User guide: `SOLVENT_EFFECTS.md`
+- Implementation details: `TECHNICAL_NOTE.md`
+
+Recommended workflow:
+1. Optimize geometry with MLIP (`--solvent` enabled if needed).
+2. Run DFT single-point at the optimized geometry.
+3. Use MLIP frequency thermochemistry corrections (with solvent delta if used) with the DFT single-point energy.
+
 > **Note:** Run `uma --list-models` to see available models. If the `uma` alias conflicts in your environment, use `g16-mlips-uma` instead.
 
-Additional examples: `examples/cla_freq_uma.gjf` + `examples/cla_uma.gjf`, `examples/sn2_freq_orb.gjf` + `examples/sn2_orb.gjf`, `examples/water_freq_mace.gjf` + `examples/water_mace.gjf`, `examples/cla_freq_aimnet2.gjf` + `examples/cla_aimnet2.gjf`
+Additional examples: `examples/cla_freq_uma.gjf` + `examples/cla_uma.gjf`, `examples/sn2_freq_orb.gjf` + `examples/sn2_orb.gjf`, `examples/water_freq_mace.gjf` + `examples/water_mace.gjf`, `examples/cla_freq_aimnet2.gjf` + `examples/cla_aimnet2.gjf`, solvent examples `examples/cla_freq_solv_uma.gjf` + `examples/cla_solv_uma.gjf`
 
 ## Installing Model Families
 
@@ -140,6 +162,7 @@ Model download notes:
 ## Advanced Options
 
 See `OPTIONS.md` for backend-specific tuning parameters.
+For solvent correction options, see `SOLVENT_EFFECTS.md`.
 
 Command aliases:
 - Short: `uma`, `orb`, `mace`, `aimnet2`
