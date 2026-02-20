@@ -230,7 +230,16 @@ def run_g16_plugin(
     parser.add_argument(
         "--solvent",
         default="none",
-        help="xTB ALPB solvent name (set 'none' to disable solvent correction).",
+        help="xTB implicit-solvent name (set 'none' to disable solvent correction).",
+    )
+    parser.add_argument(
+        "--solvent-model",
+        default="alpb",
+        choices=("alpb", "cpcmx"),
+        help=(
+            "Implicit solvent model for xTB correction: "
+            "alpb -> --alpb, cpcmx -> --cpcmx."
+        ),
     )
     parser.add_argument(
         "--xtb-cmd",
@@ -359,7 +368,7 @@ def run_g16_plugin(
             make_evaluator, args, ext
         )
 
-    # --- Optional xTB(ALPB)-vacuum solvent correction ---
+    # --- Optional xTB implicit-solvent-vacuum correction ---
     if solvent_correction_enabled(args.solvent):
         try:
             de_ev, df_ev_ang, dh_ev_ang2 = delta_alpb_minus_vac(
@@ -368,6 +377,7 @@ def run_g16_plugin(
                 charge=ext["charge"],
                 multiplicity=ext["multiplicity"],
                 solvent=args.solvent,
+                solvent_model=args.solvent_model,
                 need_forces=need_grad,
                 need_hessian=need_hess,
                 xtb_cmd=args.xtb_cmd,

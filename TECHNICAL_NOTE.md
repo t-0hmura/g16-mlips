@@ -2,11 +2,11 @@
 
 ## Solvent-Only Delta Injection
 
-The plugin adds xTB ALPB-vacuum deltas to backend MLIP outputs:
+The plugin adds xTB implicit-solvent-vacuum deltas to backend MLIP outputs:
 
-- `dE = E_xTB(ALPB) - E_xTB(vac)`
-- `dF = F_xTB(ALPB) - F_xTB(vac)`
-- `dH = H_xTB(ALPB) - H_xTB(vac)`
+- `dE = E_xTB(solv) - E_xTB(vac)`
+- `dF = F_xTB(solv) - F_xTB(vac)`
+- `dH = H_xTB(solv) - H_xTB(vac)`
 
 Injected quantities:
 
@@ -68,5 +68,9 @@ Requests Hessian from AIMNet2 calculator outputs and reshapes to `(3N, 3N)`.
 2. evaluate MLIP backend
 3. if `--solvent != none`, evaluate xTB delta and add `dE/dF/dH`
 4. convert to Gaussian units and write external output
+
+Available solvent models:
+- `--solvent-model alpb` -> xTB `--alpb`
+- `--solvent-model cpcmx` -> xTB `--cpcmx`
 
 For `igrd=2` (`freq`), solvent-corrected Hessian is mandatory and enforced.
