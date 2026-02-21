@@ -98,6 +98,8 @@ Use `--solvent <name>` in `external="..."` (examples: `water`, `thf`):
 #p external="uma --solvent thf" freq
 ```
 
+For details, see [`SOLVENT_EFFECTS.md`](SOLVENT_EFFECTS.md).
+
 This implementation follows the solvent-correction approach described in:
 Zhang, C., Leforestier, B., Besnard, C., & Mazet, C. (2025). Pd-catalyzed regiodivergent arylation of cyclic allylboronates. Chemical Science, 16, 22656-22665. https://doi.org/10.1039/d5sc07577g
 
@@ -105,8 +107,6 @@ If citing this correction in a paper, you can use the following:
 `Implicit solvent effects were accounted for by integrating the ALPB [or CPCM-X] solvation model from the xtb package as an additional correction to UMA-generated energies, gradients, and Hessians.`
 
 > **Note:** `--solvent-model cpcmx` (CPCM-X) requires xTB built from source with `-DWITH_CPCMX=ON`. The conda-forge `xtb` package does not include CPCM-X support. See [`SOLVENT_EFFECTS.md`](SOLVENT_EFFECTS.md) for build instructions.
-
-For details, see [`SOLVENT_EFFECTS.md`](SOLVENT_EFFECTS.md).
 
 ### Using the analytical Hessian in optimization jobs
 
