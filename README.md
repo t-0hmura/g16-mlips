@@ -34,7 +34,7 @@ pip install "g16-mlips[uma]"
 huggingface-cli login
 ```
 
-4. Use in a Gaussian input file (**`nomicro` is required**.). If you use ORB/MACE/AIMNet2, use `external="orb"`/`external="mace"`/`external="aimnet2"`.
+4. Use in a Gaussian input file (**`nomicro` is required**). If you use ORB/MACE/AIMNet2, use `external="orb"`/`external="mace"`/`external="aimnet2"`.
 For detailed Gaussian `External` usage, see https://gaussian.com/external/
 ```text
 %nprocshared=8
@@ -58,13 +58,13 @@ Other backends:
 ```
 
 > **Important:** For Gaussian `External` geometry optimization, always include `nomicro` in `opt(...)`.
-> Without it, Gaussian uses micro-iterations that assume an internal gradient routine, which is incompatible with the external interface.
+> Without it, Gaussian uses micro-iterations that rely on an internal gradient routine, which is incompatible with the external interface.
 
 ### Analytical Hessian (optional)
 
 Optimization and IRC can run without providing an initial Hessian — Gaussian builds one internally using estimated force constants. Providing an MLIP analytical Hessian via `freq` + `readfc` improves convergence, especially for TS searches.
 
-Gaussian `freq` (with `external=...`) is the only path that requests the plugin's analytical Hessian directly.
+Gaussian `freq` (with `external=...`) is the only job type that requests the plugin's analytical Hessian directly.
 
 **Frequency calculation**
 
@@ -80,27 +80,6 @@ CLA freq UMA
 ...
 ```
 Gaussian sends `igrd=2` and stores the result in the `.chk` file.
-
-### Using the analytical Hessian in optimization jobs
-
-To use the MLIP analytical Hessian in `opt`/`irc`, read the Hessian from an existing checkpoint using Gaussian `%oldchk` + `readfc`.
-
-```text
-%nprocshared=8
-%mem=32GB
-%chk=cla_ext.chk
-%oldchk=cla_ext.chk
-
-#p external="uma" opt(readfc,nomicro)
-
-CLA opt UMA
-
-0 1
-...
-```
-
-`readfc` reads the force constants from `%oldchk`. This applies to `opt` and `irc` runs.
-Note that `freq` is the only job type that requests the analytical Hessian (`igrd=2`) from the plugin. `opt` and `irc` themselves never request it directly.
 
 ## Implicit Solvent Correction (xTB)
 
@@ -122,12 +101,33 @@ Use `--solvent <name>` in `external="..."` (examples: `water`, `thf`):
 This implementation follows the solvent-correction approach described in:
 Zhang, C., Leforestier, B., Besnard, C., & Mazet, C. (2025). Pd-catalyzed regiodivergent arylation of cyclic allylboronates. Chemical Science, 16, 22656-22665. https://doi.org/10.1039/d5sc07577g
 
-When you describe this correction in a paper, you can use:
+If citing this correction in a paper, you can use the following:
 `Implicit solvent effects were accounted for by integrating the ALPB [or CPCM-X] solvation model from the xtb package as an additional correction to UMA-generated energies, gradients, and Hessians.`
 
 **Note:** `--solvent-model cpcmx` (CPCM-X) requires xTB built from source with `-DWITH_CPCMX=ON`. The conda-forge `xtb` package does not include CPCM-X support. See `SOLVENT_EFFECTS.md` for build instructions.
 
 For details, see `SOLVENT_EFFECTS.md`.
+
+### Using the analytical Hessian in optimization jobs
+
+To use the MLIP analytical Hessian in `opt`/`irc`, read the Hessian from an existing checkpoint using Gaussian `%oldchk` + `readfc`.
+
+```text
+%nprocshared=8
+%mem=32GB
+%chk=cla_ext.chk
+%oldchk=cla_ext.chk
+
+#p external="uma" opt(readfc,nomicro)
+
+CLA opt UMA
+
+0 1
+...
+```
+
+`readfc` reads the force constants from `%oldchk`. This applies to `opt` and `irc` runs.
+Note that `freq` is the only job type that requests the analytical Hessian (`igrd=2`) from the plugin. `opt` and `irc` themselves never request it directly.
 
 ## Installing Model Families
 
