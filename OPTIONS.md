@@ -19,7 +19,7 @@ For most users, defaults are sufficient.
 - `--list-models`
 - `--version`
 
-Keywords such as `readfc`, `%oldchk`, `nomicro`, `freq`, `calcfc`, and `ts` are Gaussian input directives, not CLI options for this plugin. Use `readfc` with `opt`/`irc` to reuse a Hessian from an existing `.chk` file (see `README.md` for details).
+Keywords such as `readfc`, `%oldchk`, `nomicro`, `freq`, `calcfc`, and `ts` are Gaussian input directives, not CLI options for this plugin. Use `readfc` with `opt`/`irc` to reuse a Hessian from an existing `.chk` file (see [`README.md`](README.md) for details).
 
 When solvent correction is enabled (`--solvent != none`), xTB must be available in the current environment/path.
 
