@@ -17,6 +17,8 @@ An optional **implicit-solvent** correction (`xTB`) is also available via `--sol
 
 Requires **Python 3.9** or later.
 
+> If you use ORCA, see also: https://github.com/t-0hmura/orca-mlips
+
 ## Quick Start (Default = UMA)
 
 1. Install PyTorch suitable for your CUDA environment.
