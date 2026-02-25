@@ -61,6 +61,7 @@ Other backends:
 
 > **Important:** For Gaussian `External` geometry optimization, always include `nomicro` in `opt(...)`.
 > Without it, Gaussian uses micro-iterations that rely on an internal gradient routine, which is incompatible with the external interface.
+> Also, if you use ONIOM, set `ActiveAtoms` as `oniom(external=("uma",ActiveAtoms):amber=softfirst)`.
 
 ### Analytical Hessian (optional)
 
