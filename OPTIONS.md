@@ -16,12 +16,16 @@ For most users, defaults are sufficient.
 - `--xtb-acc <float>` — xTB `--acc` value for solvent correction (default: `0.2`).
 - `--xtb-workdir <tmp|path>` — xTB per-call scratch base directory (default: `tmp`).
 - `--xtb-keep-files` — Keep xTB temporary files for debugging.
+- `--embedcharge` — Enable xTB point-charge embedding correction from ONIOM MM charges (`IAn=0` rows).
+- `--embedcharge-step <float>` — Cartesian step (Angstrom) for numerical embedding Hessian (default: `1.0e-3`).
 - `--list-models`
 - `--version`
 
 Keywords such as `readfc`, `%oldchk`, `nomicro`, `freq`, `calcfc`, and `ts` are Gaussian input directives, not CLI options for this plugin. Use `readfc` with `opt`/`irc` to reuse a Hessian from an existing `.chk` file (see [`README.md`](README.md) for details).
 
 When solvent correction is enabled (`--solvent != none`), xTB must be available in the current environment/path.
+
+When `--embedcharge` is enabled in ONIOM `AllAtoms` mode, MM point-charge coordinates/charges are taken from Gaussian external input and used for xTB embedding correction.
 
 ## UMA Options (`uma` / `g16-mlips-uma`)
 

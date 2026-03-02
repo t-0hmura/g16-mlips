@@ -78,9 +78,13 @@ def read_g16_external_input(input_path):
     if len(atom_lines) != nat:
         raise G16IOError("Gaussian external input ended before all atom lines were read.")
 
-    symbols = []
+    atomic_numbers = []
     coords = []
     mm_charges = []
+    real_symbols = []
+    real_coords = []
+    real_indices = []
+    mm_indices = []
     for row in atom_lines:
         parts = row.split()
         if len(parts) < 4:
@@ -91,23 +95,60 @@ def read_g16_external_input(input_path):
         z = float(parts[3])
         qmm = float(parts[4]) if len(parts) >= 5 else 0.0
 
-        symbols.append(_atomic_number_to_symbol(ian))
+        atomic_numbers.append(ian)
         coords.append([x, y, z])
         mm_charges.append(qmm)
 
+        idx = len(coords) - 1
+        if ian > 0:
+            real_symbols.append(_atomic_number_to_symbol(ian))
+            real_coords.append([x, y, z])
+            real_indices.append(idx)
+        elif ian == 0:
+            mm_indices.append(idx)
+        else:
+            raise G16IOError("Unsupported atomic number in Gaussian external input: {}".format(ian))
+
     coords_bohr = np.asarray(coords, dtype=np.float64)
     coords_ang = coords_bohr / BOHR_PER_ANG
+    real_coords_bohr = np.asarray(real_coords, dtype=np.float64).reshape(-1, 3)
+    real_coords_ang = real_coords_bohr / BOHR_PER_ANG
+    mm_indices_arr = np.asarray(mm_indices, dtype=np.int64)
+    mm_charges_all = np.asarray(mm_charges, dtype=np.float64)
+    mm_coords_bohr = coords_bohr[mm_indices_arr] if mm_indices_arr.size else np.zeros((0, 3), dtype=np.float64)
+    mm_coords_ang = mm_coords_bohr / BOHR_PER_ANG
+    mm_charges_only = mm_charges_all[mm_indices_arr] if mm_indices_arr.size else np.zeros((0,), dtype=np.float64)
+    real_indices_arr = np.asarray(real_indices, dtype=np.int64)
+    is_real_atom_mask = np.asarray([z > 0 for z in atomic_numbers], dtype=bool)
+    is_mm_point_mask = np.asarray([z == 0 for z in atomic_numbers], dtype=bool)
 
     return {
         "input_path": input_path,
         "natoms": nat,
+        "natoms_total": nat,
+        "natoms_real": int(real_indices_arr.size),
+        "natoms_mm": int(mm_indices_arr.size),
         "igrd": int(igrd),
         "charge": int(charge),
         "multiplicity": int(multiplicity),
-        "symbols": symbols,
-        "coords_bohr": coords_bohr,
-        "coords_ang": coords_ang,
-        "mm_charges": np.asarray(mm_charges, dtype=np.float64),
+        "atomic_numbers": np.asarray(atomic_numbers, dtype=np.int64),
+        "is_real_atom_mask": is_real_atom_mask,
+        "is_mm_point_mask": is_mm_point_mask,
+        "real_indices": real_indices_arr,
+        "mm_indices": mm_indices_arr,
+        # Backward-compatible keys point to real-atom subset for MLIP evaluation.
+        "symbols": list(real_symbols),
+        "coords_bohr": real_coords_bohr,
+        "coords_ang": real_coords_ang,
+        "all_coords_bohr": coords_bohr,
+        "all_coords_ang": coords_ang,
+        "real_symbols": list(real_symbols),
+        "real_coords_bohr": real_coords_bohr,
+        "real_coords_ang": real_coords_ang,
+        "mm_coords_bohr": mm_coords_bohr,
+        "mm_coords_ang": mm_coords_ang,
+        "mm_charges_all": mm_charges_all,
+        "mm_charges": mm_charges_only,
     }
 
 

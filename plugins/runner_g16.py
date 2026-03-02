@@ -43,6 +43,7 @@ if __package__ in (None, ""):
         resolve_xtb_ncores,
         solvent_correction_enabled,
     )
+    from xtb_embedcharge_correction import delta_embedcharge_minus_noembed
 else:
     from .g16_extio import read_g16_external_input, write_g16_external_output, write_msg
     from .mlip_backends import (
@@ -65,6 +66,7 @@ else:
         resolve_xtb_ncores,
         solvent_correction_enabled,
     )
+    from .xtb_embedcharge_correction import delta_embedcharge_minus_noembed
 
 
 class RunnerError(RuntimeError):
@@ -176,16 +178,59 @@ def _handle_stop_server(args):
     return 0
 
 
-def _evaluate_via_server(socket_path, ext):
+def _cartesian_dof_indices(atom_indices):
+    idx = np.asarray(atom_indices, dtype=np.int64).reshape(-1)
+    dof = np.empty(3 * idx.size, dtype=np.int64)
+    for i, a in enumerate(idx):
+        base = 3 * int(a)
+        dof[3 * i : 3 * i + 3] = np.asarray([base, base + 1, base + 2], dtype=np.int64)
+    return dof
+
+
+def _expand_force_to_full(force_subset, subset_indices, natoms_total):
+    if force_subset is None:
+        return None
+    out = np.zeros((int(natoms_total), 3), dtype=np.float64)
+    sub = np.asarray(force_subset, dtype=np.float64).reshape(-1, 3)
+    idx = np.asarray(subset_indices, dtype=np.int64).reshape(-1)
+    if sub.shape[0] != idx.size:
+        raise RunnerError(
+            "Force expansion mismatch: subset force rows {} != subset index count {}".format(
+                sub.shape[0], idx.size
+            )
+        )
+    out[idx] = sub
+    return out
+
+
+def _expand_hessian_to_full(hess_subset, subset_indices, natoms_total):
+    if hess_subset is None:
+        return None
+    ntot = int(natoms_total)
+    out = np.zeros((3 * ntot, 3 * ntot), dtype=np.float64)
+    idx = np.asarray(subset_indices, dtype=np.int64).reshape(-1)
+    sub = np.asarray(hess_subset, dtype=np.float64).reshape(3 * idx.size, 3 * idx.size)
+    dof = _cartesian_dof_indices(idx)
+    out[np.ix_(dof, dof)] = sub
+    return out
+
+
+def _evaluate_via_server(
+    socket_path,
+    symbols,
+    coords_ang,
+    charge,
+    multiplicity,
+    need_grad,
+    need_hess,
+):
     """Evaluate using the persistent server."""
-    need_grad = int(ext["igrd"]) >= 1
-    need_hess = int(ext["igrd"]) >= 2
     return client_evaluate(
         socket_path=socket_path,
-        symbols=ext["symbols"],
-        coords_ang=ext["coords_ang"],
-        charge=ext["charge"],
-        multiplicity=ext["multiplicity"],
+        symbols=symbols,
+        coords_ang=coords_ang,
+        charge=charge,
+        multiplicity=multiplicity,
         need_forces=need_grad,
         need_hessian=need_hess,
         hessian_mode="Analytical",
@@ -193,16 +238,23 @@ def _evaluate_via_server(socket_path, ext):
     )
 
 
-def _evaluate_direct(make_evaluator, args, ext):
+def _evaluate_direct(
+    make_evaluator,
+    args,
+    symbols,
+    coords_ang,
+    charge,
+    multiplicity,
+    need_grad,
+    need_hess,
+):
     """Evaluate by loading the model directly in this process."""
-    need_grad = int(ext["igrd"]) >= 1
-    need_hess = int(ext["igrd"]) >= 2
     evaluator = make_evaluator(args)
     return evaluator.evaluate(
-        symbols=ext["symbols"],
-        coords_ang=ext["coords_ang"],
-        charge=ext["charge"],
-        multiplicity=ext["multiplicity"],
+        symbols=symbols,
+        coords_ang=coords_ang,
+        charge=charge,
+        multiplicity=multiplicity,
         need_forces=need_grad,
         need_hessian=need_hess,
         hessian_mode="Analytical",
@@ -261,6 +313,20 @@ def run_g16_plugin(
         "--xtb-keep-files",
         action="store_true",
         help="Keep xTB temporary files for debugging.",
+    )
+    parser.add_argument(
+        "--embedcharge",
+        action="store_true",
+        help=(
+            "Enable xTB point-charge embedding correction using ONIOM MM charges "
+            "(IAn=0 rows in Gaussian external input)."
+        ),
+    )
+    parser.add_argument(
+        "--embedcharge-step",
+        type=float,
+        default=1.0e-3,
+        help="Step (Angstrom) for numerical embedcharge Hessian (default: 1.0e-3).",
     )
     parser.add_argument("--list-models", action="store_true", help="Print model aliases and exit")
     parser.add_argument(
@@ -328,6 +394,16 @@ def run_g16_plugin(
 
     need_grad = int(ext["igrd"]) >= 1
     need_hess = int(ext["igrd"]) >= 2
+    real_symbols = list(ext["real_symbols"])
+    real_coords_ang = np.asarray(ext["real_coords_ang"], dtype=np.float64).reshape(-1, 3)
+    real_indices = np.asarray(ext["real_indices"], dtype=np.int64).reshape(-1)
+    mm_indices = np.asarray(ext["mm_indices"], dtype=np.int64).reshape(-1)
+    mm_coords_ang = np.asarray(ext["mm_coords_ang"], dtype=np.float64).reshape(-1, 3)
+    mm_charges = np.asarray(ext["mm_charges"], dtype=np.float64).reshape(-1)
+    natoms_total = int(ext.get("natoms_total", ext["natoms"]))
+
+    if len(real_symbols) <= 0:
+        raise RunnerError("Gaussian external input has no real atoms (IAn > 0) for MLIP evaluation.")
 
     # --- Evaluation: auto server mode (default) or direct mode ---
     if not args.no_server:
@@ -342,8 +418,14 @@ def run_g16_plugin(
         )
         if server_ready:
             try:
-                energy_ev, forces_ev_ang, hess_ev_ang2 = _evaluate_via_server(
-                    socket_path, ext
+                energy_ev, forces_real_ev_ang, hess_real_ev_ang2 = _evaluate_via_server(
+                    socket_path=socket_path,
+                    symbols=real_symbols,
+                    coords_ang=real_coords_ang,
+                    charge=ext["charge"],
+                    multiplicity=ext["multiplicity"],
+                    need_grad=need_grad,
+                    need_hess=need_hess,
                 )
             except ServerError as exc:
                 print(
@@ -351,8 +433,15 @@ def run_g16_plugin(
                     "Falling back to direct mode.".format(exc),
                     file=sys.stderr, flush=True,
                 )
-                energy_ev, forces_ev_ang, hess_ev_ang2 = _evaluate_direct(
-                    make_evaluator, args, ext
+                energy_ev, forces_real_ev_ang, hess_real_ev_ang2 = _evaluate_direct(
+                    make_evaluator=make_evaluator,
+                    args=args,
+                    symbols=real_symbols,
+                    coords_ang=real_coords_ang,
+                    charge=ext["charge"],
+                    multiplicity=ext["multiplicity"],
+                    need_grad=need_grad,
+                    need_hess=need_hess,
                 )
         else:
             print(
@@ -360,20 +449,50 @@ def run_g16_plugin(
                 "loading model directly.",
                 file=sys.stderr, flush=True,
             )
-            energy_ev, forces_ev_ang, hess_ev_ang2 = _evaluate_direct(
-                make_evaluator, args, ext
+            energy_ev, forces_real_ev_ang, hess_real_ev_ang2 = _evaluate_direct(
+                make_evaluator=make_evaluator,
+                args=args,
+                symbols=real_symbols,
+                coords_ang=real_coords_ang,
+                charge=ext["charge"],
+                multiplicity=ext["multiplicity"],
+                need_grad=need_grad,
+                need_hess=need_hess,
             )
     else:
-        energy_ev, forces_ev_ang, hess_ev_ang2 = _evaluate_direct(
-            make_evaluator, args, ext
+        energy_ev, forces_real_ev_ang, hess_real_ev_ang2 = _evaluate_direct(
+            make_evaluator=make_evaluator,
+            args=args,
+            symbols=real_symbols,
+            coords_ang=real_coords_ang,
+            charge=ext["charge"],
+            multiplicity=ext["multiplicity"],
+            need_grad=need_grad,
+            need_hess=need_hess,
+        )
+
+    forces_ev_ang = None
+    if need_grad:
+        forces_ev_ang = _expand_force_to_full(
+            force_subset=forces_real_ev_ang,
+            subset_indices=real_indices,
+            natoms_total=natoms_total,
+        )
+
+    hess_ev_ang2 = None
+    if need_hess:
+        hess_ev_ang2 = _expand_hessian_to_full(
+            hess_subset=hess_real_ev_ang2,
+            subset_indices=real_indices,
+            natoms_total=natoms_total,
         )
 
     # --- Optional xTB implicit-solvent-vacuum correction ---
     if solvent_correction_enabled(args.solvent):
         try:
-            de_ev, df_ev_ang, dh_ev_ang2 = delta_alpb_minus_vac(
-                symbols=ext["symbols"],
-                coords_ang=ext["coords_ang"],
+            de_ev, df_real_ev_ang, dh_real_ev_ang2 = delta_alpb_minus_vac(
+                symbols=real_symbols,
+                coords_ang=real_coords_ang,
                 charge=ext["charge"],
                 multiplicity=ext["multiplicity"],
                 solvent=args.solvent,
@@ -392,16 +511,77 @@ def run_g16_plugin(
         energy_ev = float(energy_ev) + float(de_ev)
 
         if need_grad:
-            if df_ev_ang is None:
+            if df_real_ev_ang is None:
                 raise RunnerError("xTB solvent correction returned no force delta.")
+            df_ev_ang = _expand_force_to_full(
+                force_subset=df_real_ev_ang,
+                subset_indices=real_indices,
+                natoms_total=natoms_total,
+            )
             if forces_ev_ang is not None:
                 forces_ev_ang = np.asarray(forces_ev_ang, dtype=np.float64) + np.asarray(
                     df_ev_ang, dtype=np.float64
                 )
 
         if need_hess:
-            if dh_ev_ang2 is None:
+            if dh_real_ev_ang2 is None:
                 raise RunnerError("xTB solvent correction returned no Hessian delta.")
+            dh_ev_ang2 = _expand_hessian_to_full(
+                hess_subset=dh_real_ev_ang2,
+                subset_indices=real_indices,
+                natoms_total=natoms_total,
+            )
+            if hess_ev_ang2 is not None:
+                hess_ev_ang2 = np.asarray(hess_ev_ang2, dtype=np.float64) + np.asarray(
+                    dh_ev_ang2, dtype=np.float64
+                )
+
+    # --- Optional xTB point-charge embedding correction ---
+    if args.embedcharge:
+        try:
+            de_ev, df_local_ev_ang, dh_local_ev_ang2 = delta_embedcharge_minus_noembed(
+                symbols=real_symbols,
+                coords_q_ang=real_coords_ang,
+                mm_coords_ang=mm_coords_ang,
+                mm_charges=mm_charges,
+                charge=ext["charge"],
+                multiplicity=ext["multiplicity"],
+                need_forces=need_grad,
+                need_hessian=need_hess,
+                xtb_cmd=args.xtb_cmd,
+                xtb_acc=args.xtb_acc,
+                xtb_workdir=args.xtb_workdir,
+                xtb_keep_files=args.xtb_keep_files,
+                ncores=resolve_xtb_ncores(),
+                hessian_step=args.embedcharge_step,
+            )
+        except XTBError as exc:
+            raise RunnerError("xTB embedcharge correction failed: {}".format(exc))
+
+        energy_ev = float(energy_ev) + float(de_ev)
+        local_global_indices = np.concatenate([real_indices, mm_indices], axis=0)
+
+        if need_grad:
+            if df_local_ev_ang is None:
+                raise RunnerError("xTB embedcharge correction returned no force delta.")
+            df_ev_ang = _expand_force_to_full(
+                force_subset=df_local_ev_ang,
+                subset_indices=local_global_indices,
+                natoms_total=natoms_total,
+            )
+            if forces_ev_ang is not None:
+                forces_ev_ang = np.asarray(forces_ev_ang, dtype=np.float64) + np.asarray(
+                    df_ev_ang, dtype=np.float64
+                )
+
+        if need_hess:
+            if dh_local_ev_ang2 is None:
+                raise RunnerError("xTB embedcharge correction returned no Hessian delta.")
+            dh_ev_ang2 = _expand_hessian_to_full(
+                hess_subset=dh_local_ev_ang2,
+                subset_indices=local_global_indices,
+                natoms_total=natoms_total,
+            )
             if hess_ev_ang2 is not None:
                 hess_ev_ang2 = np.asarray(hess_ev_ang2, dtype=np.float64) + np.asarray(
                     dh_ev_ang2, dtype=np.float64

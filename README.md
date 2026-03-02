@@ -61,7 +61,16 @@ Other backends:
 
 > **Important:** For Gaussian `External` geometry optimization, always include `nomicro` in `opt(...)`.
 > Without it, Gaussian uses micro-iterations that rely on an internal gradient routine, which is incompatible with the external interface.
-> Also, if you use ONIOM, set `ActiveAtoms` as `oniom(external=("uma",ActiveAtoms):amber=softfirst)`.
+> ONIOM is supported with both `ActiveAtoms` and `AllAtoms`.
+> With `AllAtoms`, Gaussian passes `IAn=0` MM point-charge rows to the plugin.
+> By default these `IAn=0` rows are excluded from MLIP evaluation and returned as zero force/Hessian blocks.
+
+For ONIOM point-charge embedding correction via xTB:
+```text
+#p oniom(external=("uma --embedcharge",AllAtoms):amber=softfirst) opt(nomicro)
+```
+`--embedcharge` adds an xTB point-charge embedding correction using ONIOM MM charges.
+When `igrd=2`, it also returns MM point-charge force/Hessian terms from the embedding correction.
 
 ### Analytical Hessian (optional)
 
