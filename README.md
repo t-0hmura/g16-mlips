@@ -35,6 +35,7 @@ pip install "g16-mlips[uma]"
 ```bash
 huggingface-cli login
 ```
+> UMA model is on Hugging Face Hub. You need to log in once (See https://github.com/facebookresearch/fairchem):
 
 4. Use in a Gaussian input file (**`nomicro` is required**). If you use ORB/MACE/AIMNet2, use `external="orb"`/`external="mace"`/`external="aimnet2"`.
 For detailed Gaussian `External` usage, see https://gaussian.com/external/
