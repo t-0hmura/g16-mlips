@@ -29,7 +29,7 @@ When `--embedcharge` is enabled in ONIOM `AllAtoms` mode, MM point-charge coordi
 
 ## UMA Options (`uma` / `g16-mlips-uma`)
 
-Available models (default: **`uma-s-1p2`**):
+Available models (default: **`uma-s-1p1`**):
 
 | Model | Description |
 |-------|-------------|
