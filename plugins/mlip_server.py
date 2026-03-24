@@ -95,7 +95,7 @@ def _recv_msg(sock):
 class MLIPServer(object):
     """Single-threaded Unix domain socket server wrapping an evaluator."""
 
-    def __init__(self, evaluator, socket_path, idle_timeout=600, parent_pid=None):
+    def __init__(self, evaluator, socket_path, idle_timeout=1500, parent_pid=None):
         self.evaluator = evaluator
         self.socket_path = os.path.abspath(socket_path)
         self.idle_timeout = float(idle_timeout)
@@ -148,14 +148,11 @@ class MLIPServer(object):
         try:
             while self._running:
                 if self.parent_pid is not None and not _pid_is_alive(self.parent_pid):
-                    print(
-                        "[mlip-server] Parent process {} exited, shutting down.".format(
-                            self.parent_pid
-                        ),
-                        file=sys.stderr,
-                        flush=True,
-                    )
-                    break
+                    # When called via ORCA ExtTool, each evaluation spawns a
+                    # short-lived child process whose pid changes every call.
+                    # Do NOT shut down on parent exit; rely on idle_timeout
+                    # instead so the server persists across evaluations.
+                    pass
 
                 # Idle timeout check
                 if time.time() - self._last_activity > self.idle_timeout:
@@ -363,7 +360,12 @@ def client_evaluate(
 
 
 def auto_server_socket(args, parent_pid=None):
-    """Compute a deterministic socket path from evaluator arguments."""
+    """Compute a deterministic socket path from evaluator arguments.
+
+    The socket key is based on model config + working directory (not ppid),
+    so that repeated ExtTool calls from the same ORCA job reuse the same
+    server even though each call is a separate child process.
+    """
     key_parts = [str(getattr(args, "model", "default"))]
     if hasattr(args, "device"):
         key_parts.append(str(args.device))
@@ -371,9 +373,10 @@ def auto_server_socket(args, parent_pid=None):
         key_parts.append(str(args.task))
     if hasattr(args, "precision"):
         key_parts.append(str(args.precision))
-    if parent_pid is None:
-        parent_pid = os.getppid()
-    key_parts.append("ppid={}".format(int(parent_pid)))
+    # Use MLIP_SERVER_KEY env var if set (allows sharing server across directories),
+    # otherwise fall back to CWD (each directory gets its own server).
+    server_key = os.environ.get("MLIP_SERVER_KEY", os.getcwd())
+    key_parts.append("key={}".format(server_key))
 
     key = "_".join(key_parts)
     h = hashlib.md5(key.encode()).hexdigest()[:12]
@@ -402,7 +405,7 @@ def ensure_server(
     executable,
     custom_args,
     socket_path,
-    idle_timeout=600,
+    idle_timeout=1500,
     parent_pid=None,
 ):
     """Ensure a server is running at *socket_path*.
@@ -450,7 +453,7 @@ def ensure_server(
         )
         return False
 
-    startup_timeout = 300
+    startup_timeout = int(os.environ.get("MLIP_SERVER_STARTUP_TIMEOUT", "900"))
     waited = 0
     while waited < startup_timeout:
         if proc.poll() is not None:
