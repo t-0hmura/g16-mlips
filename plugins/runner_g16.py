@@ -278,6 +278,10 @@ def run_g16_plugin(
         ).format(plugin_name.replace("_", " "), plugin_name)
     )
     parser.add_argument("--model", default=default_model, help="Model name/alias/path")
+    parser.add_argument(
+        "-w", "--weights-file", default=None,
+        help="Path to a downloaded model weights file (overrides automatic download).",
+    )
     parser.add_argument("--device", default="auto", help="cpu|cuda|auto")
     parser.add_argument(
         "--solvent",
@@ -380,6 +384,10 @@ def run_g16_plugin(
         )
 
     args = parser.parse_args(custom_args)
+    if args.weights_file is not None:
+        args.weights_file = os.path.abspath(os.path.expanduser(args.weights_file))
+        if not os.path.isfile(args.weights_file):
+            parser.error("Weights file does not exist: {}".format(args.weights_file))
 
     if args.list_models:
         for item in available_models():
